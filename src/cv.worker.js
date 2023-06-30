@@ -106,7 +106,7 @@ let nrois = [];
 let drois = [];
 
 async function processImages(data) {
-  const images = data.payload;
+  const {screenshots: images, times} = data.payload;
   const cv = self.cv_;
   const matrices = [];
   const outputMatrix = new cv.Mat();
@@ -124,52 +124,67 @@ async function processImages(data) {
       // Get the image data from the OffscreenCanvas
       const imageData = offscreenContext.getImageData(0, 0, imageBitmap.width, imageBitmap.height);
       let mat = cv.matFromImageData(imageData);
-
-      // console.log('mat:', mat);
-
       cv.cvtColor(mat, mat, cv.COLOR_RGBA2RGB);
       matrices.push(mat);
     }
-    // console.log('rows:', matrices[0].rows, 'cols:',  matrices[0].cols, matrices[0])
+
+    console.log(1);
+
     const packedImage = new cv.Mat(matrices[0].rows, matrices[0].cols, cv.CV_8UC3, [0, 0, 0, 0]);
     const finalImage = new cv.Mat(matrices[0].rows, matrices[0].cols, cv.CV_8UC3, [0, 0, 0, 0]);
 
-    console.log('finalImage:', finalImage, packedImage);
-
-    // console.log('packedImage:', packedImage);
     for (let i = 0; i < matrices.length - 1; i++) {
       let diff = new cv.Mat();
+      console.log(1.1, matrices[i], matrices[i + 1]);
+      // The matrices should be of same size to avoid crash
+      // Note: Make sure the frame dimensions doesn't change. Simple.
       cv.absdiff(matrices[i], matrices[i + 1], diff);
 
-      // console.log('diff:', diff);
+      console.log(2);
 
       const grayDiffImage = new cv.Mat();
       cv.cvtColor(diff, grayDiffImage, cv.COLOR_RGBA2GRAY);
 
+      diff.delete();
+
+      console.log(3);
+
       const binaryImage = new cv.Mat();
       cv.threshold(grayDiffImage, binaryImage, 0, 1, cv.THRESH_BINARY);
 
-      // console.log('binaryImage:', stringifyData(binaryImage));
+      grayDiffImage.delete();      
+
+      console.log(4);
 
       let kernel = cv.Mat.ones(5, 5, cv.CV_8U);
 
       // / Apply morphological dilation
       const dilatedImage = new cv.Mat();
-
       cv.dilate(binaryImage, dilatedImage, kernel, new cv.Point(-1, -1), 5, cv.BORDER_CONSTANT, cv.morphologyDefaultBorderValue());
+      binaryImage.delete();
+
+      console.log(4.5);
 
       let erodedImage = new cv.Mat();
       cv.erode(dilatedImage, erodedImage, kernel, new cv.Point(-1, -1), 5, cv.BORDER_CONSTANT, cv.morphologyDefaultBorderValue());
+      dilatedImage.delete();
+
+      console.log(4.6, ':', erodedImage, ':', cv.countNonZero(erodedImage));
 
       const stats = new cv.Mat();
       const labeledImage = new cv.Mat();
       // Create an empty centroids matrix
       const centroids = new cv.Mat();
+
       // Perform connected component labeling and obtain statistics
-      const numLabels = cv.connectedComponentsWithStats(erodedImage, labeledImage, stats, centroids);
+      let numLabels;
+      numLabels = cv.connectedComponentsWithStats(erodedImage, labeledImage, stats, centroids);
+      erodedImage.delete();
+      labeledImage.delete();
+      centroids.delete();
 
-      console.log('labeledImage:', labeledImage, stats, centroids);
-
+      console.log(5, ':', numLabels);
+    
       const componentIndices = Array.from(Array(numLabels - 1).keys())//.sort((a, b) => stats.data32S[(a + 1) * 5 + 4] - stats.data32S[(b + 1) * 5 + 4]).reverse();
 
       for (const index of componentIndices) {
@@ -197,14 +212,12 @@ async function processImages(data) {
   
           // If the position is available, pack the component and exit the loop
           if (isAvailable) {
-            // console.log('roi')
             const r = new cv.Rect(posX, posY, width, height);
             const b = new cv.Rect(stats.data32S[(index + 1) * 5], stats.data32S[(index + 1) * 5 + 1], width, height);
             matrices[i + 1].roi(b)
               .copyTo(packedImage.roi(r));
             foundPosition = true;
-            // rois.push({i, rect: b, drect: r});
-            rois.push({i, r});
+            rois.push({i, r, o: index});
             if (!nrois[i]) {
               nrois[i] = [r];
             } else {
@@ -229,19 +242,25 @@ async function processImages(data) {
           }
         }
       }
+
+      console.log(5.5);
+
+      stats.delete();
+
+      if (!componentIndices.length) {
+        times.splice(i, 1);
+      }
     }
 
-    rois = rois.sort((a, b) => {
-      // return Math.abs(a.rect.width - a.rect.height) - Math.abs(b.rect.width - b.rect.height);
+
+    let srois = rois.sort((a, b) => {
       return Math.abs(a.r.width - a.r.height) - Math.abs(b.r.width - b.r.height);
     }).reverse();
 
-    // debugger;
+    console.log(6);
 
-    // let nrois = [];
-    for (const {r,i} of rois) {
-      // const r = roi.rect;
-      // console.log('r:', r);
+
+    for (const {r,i, o} of srois) {
       const width = r.width;
       const height = r.height;
 
@@ -267,12 +286,14 @@ async function processImages(data) {
         // If the position is available, pack the component and exit the loop
         if (isAvailable) {
           const template = packedImage.roi(r);
-          const nr = new cv.Rect(posX, posY, width, height);
 
           let dst = new cv.Mat();
           let mask = new cv.Mat();
           cv.matchTemplate(finalImage, template, dst, cv.TM_CCOEFF_NORMED, mask);
           let minMaxLocResult = cv.minMaxLoc(dst, mask);
+          dst.delete();
+          mask.delete();
+
           const { maxLoc } = minMaxLocResult;
           const row = maxLoc.y;
           const col = maxLoc.x;
@@ -281,17 +302,36 @@ async function processImages(data) {
           const srcRegion = packedImage.rowRange(r.y, r.y + height).colRange(r.x, r.x + width);
           const compareResult = new cv.Mat();
           cv.compare(packedRegion, srcRegion, compareResult, cv.CMP_EQ);
+          console.log(8);
 
-          let compareGray = new cv.Mat();
+          const compareGray = new cv.Mat();
           cv.cvtColor(compareResult, compareGray, cv.COLOR_BGR2GRAY);
+          compareResult.delete();
+          console.log(9);
 
           const nonZeroCount = cv.countNonZero(compareGray);
-          // console.log('nonZeroCount:', nonZeroCount, width * height, nonZeroCount !== width * height);
+          compareGray.delete();
+
           if (nonZeroCount !== width * height) {
-            template
-              .copyTo(finalImage.roi(nr));
-            nrs.push({i, rect: nr});
-            nres.push({i, rect: {...nr, ...{y: nr.y + 450}}});
+            const nr = new cv.Rect(posX, posY, width, height);
+            const qroi = finalImage.roi(nr);
+            template.copyTo(qroi);
+            nrs.push({i, rect: nr, oldrect: r});
+            nres.push({i, o, rect: {...nr, ...{y: nr.y + matrices[0].rows}}});
+          } 
+          else {
+            const match = nrs.find((nr) => nr.rect.x === col && nr.rect.y === row);
+            if (match) {
+              nrs.push({i, rect: match.rect, oldrect: match.rect});
+              nres.push({i, o, rect: {...match.rect, ...{y: match.rect.y + matrices[0].rows, width, height}}});
+            } else {
+              times.splice(i, 1);
+              const nr = new cv.Rect(posX, posY, width, height);
+              const qroi = finalImage.roi(nr);
+              template.copyTo(qroi);
+              nrs.push({i, rect: nr, oldrect: r});
+              nres.push({i, o, rect: {...nr, ...{y: nr.y + matrices[0].rows}}});
+            }
           }
           foundPosition = true;
         } else {
@@ -309,99 +349,50 @@ async function processImages(data) {
       }
     }
 
-    console.log('nrs:', nrs);
+    packedImage.delete();
 
-    debugger;
-
-    // const grayImage  = new cv.Mat();
-    // cv.cvtColor(finalImage,  grayImage, cv.COLOR_BGR2GRAY);
-
-    // const binaryImage = new cv.Mat();
-    // cv.threshold(grayImage, binaryImage, 1, 255, cv.THRESH_BINARY);
-
-    // const projection = new cv.Mat();
-    // cv.reduce(binaryImage, projection, 1, cv.REDUCE_SUM, cv.CV_32S);
-
-    // const projectionArray = projection.data32S;
-    // let transitionRow = 0;
-    // for (let i = 0; i < projectionArray.length; i++) {
-    //   if (projectionArray[i] < (Math.max(...projectionArray) * 0.1)) {
-    //     transitionRow = i;
-    //     break;
-    //   }
-    // }
+    console.log(10);
 
     let snrs = nrs.sort((a, b) => {
       return (a.rect.y + a.rect.height) - (b.rect.y + b.rect.height);
     }).reverse();
 
-    // console.log('nrs:', snrs, snrs[0].rect.y + snrs[0].rect.height);
-
     const croppedImage = new cv.Mat();
     finalImage.roi(new cv.Rect(0, 0, finalImage.cols, snrs[0].rect.y + snrs[0].rect.height)).copyTo(croppedImage);
+    finalImage.delete();
 
     const input = new cv.MatVector();
     input.push_back(matrices[0]);
     input.push_back(croppedImage);
+    croppedImage.delete();
+
     cv.vconcat(input, outputMatrix);
-
-    // console.log('m:', matrices[0])
-
-    // self.postMessage({ done: true, image: imageDataFromMat(finalImage) });
+    input.delete();
   }
 
-  const times = [660305415, 660306038, 660306220, 660306414, 660306598, 660306790, 660307644, 660307810, 660307875, 660308049, 660308235, 660308285, 660309704];
+  console.log(11);
+
+  // const times = [660305415, 660306038, 660306220, 660306414, 660306598, 660306790, 660307644, 660307810, 660307875, 660308049, 660308235, 660308285, 660309704];
 
   const delays = times.slice(1).concat([times[times.length - 1] + END_FRAME_PAUSE])
   .map((value, index) => value - times[index]);
 
-  console.log('rois:', rois);
-
-  console.log('delays:', delays);
-
   timeline = [{
-    delay: delays[0], blit:[[0, 0, matrices[0].cols, matrices[0].rows, 0, 0]]
+    delay: 0, blit:[[0, 0, matrices[0].cols, matrices[0].rows, 0, 0]]
   }];
 
   nrois.forEach((_n, index) => {
     let blitlist = [];
-    let n = nres.filter((r) => r.i === index);
+    let n = nres.filter((r) => r.i === index).sort((a, b) => a.o - b.o);
     for (let i = 0; i < n.length; i++) {
       const {x, y, width, height} = n[i].rect;
-      blitlist.push([x, y, width, height, drois[index][i].x, drois[index][i].y, drois[index][i].width, drois[index][i].height]);
+      blitlist.push([x, y, width, height, drois[index][i].x, drois[index][i].y, width, height]);
     }
-    timeline.push({delay: delays[index + 1], blit: blitlist});
+    timeline.push({delay: delays[index], blit: blitlist});
   });
 
-  // for (let i = 0; i < images.length; i++) {
-  //   const {x, y, width, height} = nrs[i];
-  //   // blits.push([x, y, width, height, rois[i].x, rois[i].y]);
-  //   const blit = [ rois[i].x, rois[i].y , width, height, x, y];
-  //   timeline.push({delay: delays[i], blit});
-  // }
-
-  // console.log('blits:', blits);
-
-  // timeline = [{'delay': delays, 'blit': blits}]
-
-
-  // // Specify the coordinates of the rectangle
-  // const top_left = new cv.Point(145, 15);
-  // const bottom_right = new cv.Point(160, 20);
-
-  // // Specify the color and thickness of the rectangle
-  // const color = new cv.Scalar(0, 255, 0); // Green color in BGR format
-  // const thickness = 1;
-
-  // // Draw the rectangle on the image
-  // cv.rectangle(outputMatrix, top_left, bottom_right, color, thickness);
-
-  console.log('timeline:', timeline);
-
-  // cv.rectangle(outputMatrix, new cv.Point(790, 510), new cv.Point(795, 520), color, thickness);
-
-  // self.postMessage({ name: 'timeline', timeline });
-  self.postMessage({ done: true, image: imageDataFromMat(outputMatrix), timeline });
+  self.postMessage({ done: true, image: imageDataFromMat(outputMatrix), timeline});
+  outputMatrix.delete();
 }
 
 onmessage = function (e) {
