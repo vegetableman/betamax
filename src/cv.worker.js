@@ -152,6 +152,8 @@ async function processImages(data) {
       for j in range(len(src_rects)):
           rects_by_size.append((slice_tuple_size(src_rects[j]), i, j))
 
+    rects_by_size.sort(reverse = True)
+
     allocs = [[None] * len(src_rects) for src_rects in img_areas]
 
     for size,i,j in rects_by_size:
@@ -162,13 +164,14 @@ async function processImages(data) {
       sx, sy = b.start, a.start
       w, h = b.stop - b.start, a.stop - a.start
 
-      #existing = find_matching_rect(allocator.bitmap, allocator.num_used_rows, packed, src, sx, sy, w, h)
-      #if existing:
-      #  dy, dx = existing
-      #  allocs[i][j] = (dy, dx)
-      #else:
-      dy, dx = allocator.allocate(w, h)
-      allocs[i][j] = (dy, dx)
+      existing = find_matching_rect(allocator.bitmap, allocator.num_used_rows, packed, src, sx, sy, w, h)
+      print(f"existing {existing}")
+      if existing:
+        dy, dx = existing
+        allocs[i][j] = (dy, dx)
+      else:
+        dy, dx = allocator.allocate(w, h)
+        allocs[i][j] = (dy, dx)
 
       packed[dy:dy+h, dx:dx+w] = src[sy:sy+h, sx:sx+w]
 
@@ -195,15 +198,15 @@ async function processImages(data) {
         blitlist.append([dx, dy, w, h, sx, sy])
 
       timeline.append({'delay': delays[i], 'blit': blitlist})
+    print(timeline)
   `)
 
   const buffer = pyodide.globals.get('buffer_content').toJs();
-  const timeline = pyodide.globals.get('timeline').toJs();
+  const timeline = JSON.parse(pyodide.globals.get('timeline').toString().replaceAll("'", '"'));
   const image = new Blob([buffer], { type: 'image/png' });
 
   self.postMessage({ done: true, image, timeline});
-
-  debugger;
+  console.log('timeline:', timeline);
   pyodide.runPython('import sys; sys.modules.clear()');
 }
 

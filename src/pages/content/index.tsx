@@ -11,6 +11,41 @@ canvas.style.left = '20px';
 canvas.style.bottom = '20px';
 document.body.appendChild(canvas);
 
+// const style = document.createElement('style');
+// style.innerHTML = `
+// .bt-custom-cursor {
+//   position: fixed;
+//   top: 0;
+//   left: 0;
+//   width: 20px;
+//   height: 20px;
+//   cursor: pointer;
+//   border-radius: 50%;
+//   pointer-events: none; /* Ensure the cursor element doesn't interfere with mouse events */
+//   z-index: 99999999999999999; /* Ensure the cursor element is above other elements */
+// }
+// `;
+// document.head.appendChild(style);
+
+// const cursorEl = document.createElement('div');
+// cursorEl.classList.add('bt-custom-cursor');
+// const pointersvg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"  height="1em"><path d="M448 240v96c0 3.084-.356 6.159-1.063 9.162l-32 136C410.686 499.23 394.562 512 376 512H168a40.004 40.004 0 0 1-32.35-16.473l-127.997-176c-12.993-17.866-9.043-42.883 8.822-55.876 17.867-12.994 42.884-9.043 55.877 8.823L104 315.992V40c0-22.091 17.908-40 40-40s40 17.909 40 40v200h8v-40c0-22.091 17.908-40 40-40s40 17.909 40 40v40h8v-24c0-22.091 17.908-40 40-40s40 17.909 40 40v24h8c0-22.091 17.908-40 40-40s40 17.909 40 40zm-256 80h-8v96h8v-96zm88 0h-8v96h8v-96zm88 0h-8v96h8v-96z"/></svg>';
+// const svg = '<svg xmlns="http://www.w3.org/2000/svg" height="1em" viewBox="0 0 320 512"><path d="M302.189 329.126H196.105l55.831 135.993c3.889 9.428-.555 19.999-9.444 23.999l-49.165 21.427c-9.165 4-19.443-.571-23.332-9.714l-53.053-129.136-86.664 89.138C18.729 472.71 0 463.554 0 447.977V18.299C0 1.899 19.921-6.096 30.277 5.443l284.412 292.542c11.472 11.179 3.007 31.141-12.5 31.141z"/></svg>';
+// cursorEl.innerHTML = svg;
+// document.body.appendChild(cursorEl);
+// document.addEventListener('mousemove', (event) => {
+//   // console.log('mousemove', event.target instanceof HTMLElement ? event.target.closest('button'): null);
+//   // Update the position of the custom cursor element to match the mouse position
+// 	if (event.target instanceof HTMLElement && (event.target.style.cursor === 'pointer' || event.target.closest('button') || event.target.closest('.cursor-pointer'))) {
+// 		cursorEl.innerHTML = pointersvg;
+// 	} else {
+// 		cursorEl.innerHTML = svg;
+// 	}
+//   cursorEl.style.left = `${event.clientX}px`;
+//   cursorEl.style.top = `${event.clientY}px`;
+// });
+
+
 const delay_scale = 0.9
 let timer = null
 
@@ -19,13 +54,13 @@ function animate(img, timeline, canv)
 	let i = 0;
 	let run_time = 0;
 	for (let j = 0; j < timeline.length - 1; ++j)
-		run_time += timeline[j].get('delay');
+		run_time += timeline[j].delay;
 
 	let f = function()
 	{
 		let frame = i++ % timeline.length;
-		let delay = timeline[frame].get('delay') * delay_scale;
-		let blits = timeline[frame].get('blit');
+		let delay = timeline[frame].delay * delay_scale;
+		let blits = timeline[frame].blit;
 
 		let ctx = canv.getContext('2d');
 		for (let j = 0; j < blits.length; ++j)
@@ -56,7 +91,7 @@ function set_animation(img_url, timeline, canvas_id, fallback_id)
 	{
 		var canvas = document.getElementById(canvas_id);
 		if (canvas && canvas instanceof HTMLCanvasElement && canvas.getContext) {
-			const blits = timeline[0].get('blit')[0];
+			const blits = timeline[0].blit[0];
 			canvas.width = blits[2];
 			canvas.height = blits[3];
 			canvas.style.position = 'absolute';
@@ -154,6 +189,8 @@ function startCapture() {
 			// Stop the screen capture stream
 			stream.getTracks().forEach(track => track.stop());
 
+			// const times = [1689169129236, 1689169129312, 1689169129392, 1689169129484, 1689169129574, 1689169129662, 1689169129757, 1689169129844, 1689169129934, 1689169130021, 1689169130101, 1689169130183, 1689169130266, 1689169130346, 1689169130425, 1689169130504, 1689169130584, 1689169130663, 1689169130749]
+
 			screenshots.forEach((s, i) => {
 				createImageDownloadLink(s, `${times[i]}.png`);
 			});
@@ -171,9 +208,9 @@ function startCapture() {
 			console.log(screenshots, times);
 			cv.processImages({screenshots, times}, (imagedata, timeline) => {
 				const url = URL.createObjectURL(imagedata);
-				// var im = new Image();
-				// im.src = url;
-				// document.body.appendChild(im);
+				var im = new Image();
+				im.src = url;
+				document.body.appendChild(im);
 				set_animation(url, timeline, 'betamax-canvas', 'anim_fallback');
 			});
 		}
