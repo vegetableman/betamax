@@ -1,409 +1,221 @@
-/**
- *  Here we will check from time to time if we can access the OpenCV
- *  functions. We will return in a callback if it's been resolved
- *  well (true) or if there has been a timeout (false).
- */
-
-// How long to wait before the animation restarts
-END_FRAME_PAUSE = 4000
-
-function waitForOpencv(callbackFn, waitTimeMs = 30000, stepTimeMs = 100) {
-  if (self.cv_ && self.cv_.Mat) callbackFn(true)
-
-  let timeSpentMs = 0
-  const interval = setInterval(async () => {
-    try {
-      self.cv_ = await cv;
-    } catch(ex) {
-      console.log('ex:', ex);
-    }
-    const limitReached = timeSpentMs > waitTimeMs
-    if ((self.cv_ && self.cv_.Mat) || limitReached) {
-      clearInterval(interval)
-      return callbackFn(!limitReached)
-    } else {
-      timeSpentMs += stepTimeMs
-    }
-  }, stepTimeMs)
-}
-
-function dataURLtoBlob(dataURL) {
-  const BASE64_MARKER = ';base64,';
-  const parts = dataURL.split(BASE64_MARKER);
-  const contentType = parts[0].split(':')[1];
-  const raw = self.atob(parts[1]);
-  const rawLength = raw.length;
-  const uInt8Array = new Uint8Array(rawLength);
-
-  for (let i = 0; i < rawLength; ++i) {
-    uInt8Array[i] = raw.charCodeAt(i);
-  }
-
-  return new Blob([uInt8Array], { type: contentType });
-}
-
-function stringifyData(mat) {
-  var rows = mat.rows;
-  var cols = mat.cols;
-
-  // Access the data of the matrix as a Uint8Array
-  var data = mat.data;
-
-  // Convert the data to a string representation
-  var str = "";
-
-  for (var i = 0; i < rows; i++) {
-    for (var j = 0; j < cols; j++) {
-      var index = i * cols + j;
-      str += data[index] + " ";
-    }
-    str += "\n";
-  }
-
-  return str;
-}
-
-function imageDataFromMat(mat) {
-  // converts the mat type to cv.CV_8U
-  const cv = self.cv_;
-  const img = new cv.Mat()
-  const depth = mat.type() % 8
-  const scale =
-    depth <= cv.CV_8S ? 1.0 : depth <= cv.CV_32S ? 1.0 / 256.0 : 255.0
-  const shift = depth === cv.CV_8S || depth === cv.CV_16S ? 128.0 : 0.0
-  mat.convertTo(img, cv.CV_8U, scale, shift)
-
-  // converts the img type to cv.CV_8UC4
-  switch (img.type()) {
-    case cv.CV_8UC1:
-      cv.cvtColor(img, img, cv.COLOR_GRAY2RGBA)
-      break
-    case cv.CV_8UC3:
-      cv.cvtColor(img, img, cv.COLOR_RGB2RGBA)
-      break
-    case cv.CV_8UC4:
-      break
-    default:
-      throw new Error(
-        'Bad number of channels (Source image must have 1, 3 or 4 channels)'
-      )
-  }
-  const clampedArray = new ImageData(
-    new Uint8ClampedArray(img.data),
-    img.cols,
-    img.rows
-  )
-  img.delete()
-  return clampedArray
-}
-
-
-let rois = [];
-let nrs = [];
-let nres = [];
-let blits = [];
-let nrois = [];
-let drois = [];
-
 async function processImages(data) {
   const {screenshots: images, times} = data.payload;
-  const cv = self.cv_;
-  const matrices = [];
-  const outputMatrix = new cv.Mat();
+  await pyodide.runPythonAsync(`
+    import io
+    import base64
+    import json
+    import cv2
+    import imageio.v3 as iio
+    from PIL import Image
+    from numpy import *
+    import scipy.ndimage as nd
 
-  if (Array.isArray(images)) {
-    for (item of images) {
-      const imageBitmap = await createImageBitmap( dataURLtoBlob(item));
-      const offscreenCanvas = new OffscreenCanvas(imageBitmap.width, imageBitmap.height);
-      const offscreenContext = offscreenCanvas.getContext('2d');
-      // Set the dimensions of the OffscreenCanvas
-      offscreenCanvas.width = imageBitmap.width;
-      offscreenCanvas.height = imageBitmap.height;
-      // Draw the ImageBitmap onto the OffscreenCanvas
-      offscreenContext.drawImage(imageBitmap, 0, 0);
-      // Get the image data from the OffscreenCanvas
-      const imageData = offscreenContext.getImageData(0, 0, imageBitmap.width, imageBitmap.height);
-      let mat = cv.matFromImageData(imageData);
-      cv.cvtColor(mat, mat, cv.COLOR_RGBA2RGB);
-      matrices.push(mat);
-    }
+    END_FRAME_PAUSE = 4000
 
-    console.log(1);
+    SIMPLIFICATION_TOLERANCE = 512
 
-    const packedImage = new cv.Mat(matrices[0].rows, matrices[0].cols, cv.CV_8UC3, [0, 0, 0, 0]);
-    const finalImage = new cv.Mat(matrices[0].rows, matrices[0].cols, cv.CV_8UC3, [0, 0, 0, 0]);
+    MAX_PACKED_HEIGHT = 20000
 
-    for (let i = 0; i < matrices.length - 1; i++) {
-      let diff = new cv.Mat();
-      console.log(1.1, matrices[i], matrices[i + 1]);
-      // The matrices should be of same size to avoid crash
-      // Note: Make sure the frame dimensions doesn't change. Simple.
-      cv.absdiff(matrices[i], matrices[i + 1], diff);
+    def slice_size(a, b):
+      return (a.stop - a.start) * (b.stop - b.start)
 
-      console.log(2);
+    def combine_slices(a, b, c, d):
+      return (slice(min(a.start, c.start), max(a.stop, c.stop)),
+        slice(min(b.start, d.start), max(b.stop, d.stop)))
 
-      const grayDiffImage = new cv.Mat();
-      cv.cvtColor(diff, grayDiffImage, cv.COLOR_RGBA2GRAY);
+    def slices_intersect(a, b, c, d):
+      if (a.start >= c.stop): return False
+      if (c.start >= a.stop): return False
+      if (b.start >= d.stop): return False
+      if (d.start >= b.stop): return False
+      return True
 
-      diff.delete();
+    # Combine a large set of rectangles into a smaller set of rectangles,
+    # minimising the number of additional pixels included in the smaller set of
+    # rectangles
+    def simplify(boxes, tol = 0):
+      out = []
+      for a,b in boxes:
+          sz1 = slice_size(a, b)
+          did_combine = False
+          for i in range(len(out)):
+              c,d = out[i]
+              cu, cv = combine_slices(a, b, c, d)
+              sz2 = slice_size(c, d)
+              if slices_intersect(a, b, c, d) or (slice_size(cu, cv) <= sz1 + sz2 + tol):
+                  out[i] = (cu, cv)
+                  did_combine = True
+                  break
+          if not did_combine:
+              out.append((a,b))
 
-      console.log(3);
+      if tol != 0:
+        return simplify(out, 0)
+      else:
+        return out
 
-      const binaryImage = new cv.Mat();
-      cv.threshold(grayDiffImage, binaryImage, 0, 1, cv.THRESH_BINARY);
+    # Allocates space in the packed image. This does it in a slow, brute force
+    # manner.
+    class Allocator2D:
+      def __init__(self, rows, cols):
+        self.bitmap = zeros((rows, cols), dtype=uint8)
+        self.available_space = zeros(rows, dtype=uint32)
+        self.available_space[:] = cols
+        self.num_used_rows = 0
 
-      grayDiffImage.delete();      
+      def allocate(self, w, h):
+        bh, bw = shape(self.bitmap)
 
-      console.log(4);
+        for row in range(bh - h + 1):
+            if self.available_space[row] < w:
+                continue
 
-      let kernel = cv.Mat.ones(5, 5, cv.CV_8U);
+            for col in range(bw - w + 1):
+                if self.bitmap[row, col] == 0:
+                    if not self.bitmap[row:row+h,col:col+w].any():
+                        self.bitmap[row:row+h,col:col+w] = 1
+                        self.available_space[row:row+h] -= w
+                        self.num_used_rows = max(self.num_used_rows, row + h)
+                        return row, col
+        raise RuntimeError()
 
-      // / Apply morphological dilation
-      const dilatedImage = new cv.Mat();
-      cv.dilate(binaryImage, dilatedImage, kernel, new cv.Point(-1, -1), 5, cv.BORDER_CONSTANT, cv.morphologyDefaultBorderValue());
-      binaryImage.delete();
+    def find_matching_rect(bitmap, num_used_rows, packed, src, sx, sy, w, h):
+      template = src[sy:sy+h, sx:sx+w]
+      bh, bw = shape(bitmap)
+      image = packed[0:num_used_rows, 0:bw]
+  
+      if num_used_rows < h:
+          return None
+  
+      result = cv2.matchTemplate(image,template,cv2.TM_CCOEFF_NORMED)
+  
+      row,col = unravel_index(result.argmax(),result.shape)
+      if ((packed[row:row+h,col:col+w] == src[sy:sy+h,sx:sx+w]).all()
+          and (packed[row:row+1,col:col+w,0] == src[sy:sy+1,sx:sx+w,0]).all()):
+          return row,col
+      else:
+          return None
 
-      console.log(4.5);
+    def slice_tuple_size(s):
+      a, b = s
+      return (a.stop - a.start) * (b.stop - b.start)
 
-      let erodedImage = new cv.Mat();
-      cv.erode(dilatedImage, erodedImage, kernel, new cv.Point(-1, -1), 5, cv.BORDER_CONSTANT, cv.morphologyDefaultBorderValue());
-      dilatedImage.delete();
+    print(1)
+    images = []
+    str_urls = '${JSON.stringify(images)}'
+    urls = json.loads(str_urls)
+    times_ = json.loads('${JSON.stringify(times)}')
+    times = []
+    last_url = ''
+    i = 0
+    print(2)
+    for u in urls:
+      print(i)
+      if u == last_url:
+        i = i + 1
+        continue
+      last_url = u;
+      # Remove the "data:image/<image_format>;base64," prefix
+      base64_data = u.split(",")[1]
 
-      console.log(4.6, ':', erodedImage, ':', cv.countNonZero(erodedImage));
+      # Decode the Base64 data into binary form
+      image_data = base64.b64decode(base64_data)
+      im_ = iio.imread(io.BytesIO(image_data))
+      height, width, _ = im_.shape
+      img_obj = Image.fromarray(im_).resize((int(width/2), int(height/2)))
+      im = array(img_obj)
+      if im.shape[2] == 4:
+        im = im[:,:,:3]
+      images.append(im)
+      times.append(times_[i])
+      i = i + 1
+      
+    print(times)
 
-      const stats = new cv.Mat();
-      const labeledImage = new cv.Mat();
-      // Create an empty centroids matrix
-      const centroids = new cv.Mat();
+    zero = images[0] - images[0]
+    pairs = zip([zero] + images[:-1], images)
+    diffs = [sign((b - a).max(2)) for a, b in pairs]
 
-      // Perform connected component labeling and obtain statistics
-      let numLabels;
-      numLabels = cv.connectedComponentsWithStats(erodedImage, labeledImage, stats, centroids);
-      erodedImage.delete();
-      labeledImage.delete();
-      centroids.delete();
+    img_areas = [nd.find_objects(nd.label(d)[0]) for d in diffs]
 
-      console.log(5, ':', numLabels);
+    img_areas = [simplify(x, SIMPLIFICATION_TOLERANCE) for x in img_areas]
     
-      const componentIndices = Array.from(Array(numLabels - 1).keys())//.sort((a, b) => stats.data32S[(a + 1) * 5 + 4] - stats.data32S[(b + 1) * 5 + 4]).reverse();
+    ih, iw, _ = shape(images[0])
 
-      for (const index of componentIndices) {
-        const width = stats.data32S[(index + 1) * 5 + 2];
-        const height = stats.data32S[(index + 1) * 5 + 3];
-  
-        // Find an available position to pack the component
-        let posX = 0;
-        let posY = 0;
-        let foundPosition = false;
-        while (!foundPosition) {
-          // Check if the current position is available
-          let isAvailable = true;
-          for (let y = posY; y < posY + height; y++) {
-            for (let x = posX; x < posX + width; x++) {
-              if (packedImage.ucharPtr(y, x)[0] !== 0) {
-                isAvailable = false;
-                break;
-              }
-            }
-            if (!isAvailable) {
-              break;
-            }
-          }
-  
-          // If the position is available, pack the component and exit the loop
-          if (isAvailable) {
-            const r = new cv.Rect(posX, posY, width, height);
-            const b = new cv.Rect(stats.data32S[(index + 1) * 5], stats.data32S[(index + 1) * 5 + 1], width, height);
-            matrices[i + 1].roi(b)
-              .copyTo(packedImage.roi(r));
-            foundPosition = true;
-            rois.push({i, r, o: index});
-            if (!nrois[i]) {
-              nrois[i] = [r];
-            } else {
-              nrois[i].push(r);
-            }
-            if (!drois[i]) {
-              drois[i] = [b];
-            } else {
-              drois[i].push(b);
-            }
-          } else {
-            // Move to the next position
-            posX++;
-            if (posX + width > matrices[0].cols) {
-              posX = 0;
-              posY++;
-              if (posY + height > matrices[0].rows) {
-                // No more available positions, exit the loop
-                break;
-              }
-            }
-          }
-        }
-      }
+    allocator = Allocator2D(MAX_PACKED_HEIGHT, iw)
+    packed = zeros((MAX_PACKED_HEIGHT, iw, 3), dtype=uint8)
 
-      console.log(5.5);
+    rects_by_size = []
+    for i in range(len(images)):
+      src_rects = img_areas[i]
 
-      stats.delete();
+      for j in range(len(src_rects)):
+          rects_by_size.append((slice_tuple_size(src_rects[j]), i, j))
 
-      if (!componentIndices.length) {
-        times.splice(i, 1);
-      }
-    }
+    allocs = [[None] * len(src_rects) for src_rects in img_areas]
 
+    for size,i,j in rects_by_size:
+      src = images[i]
+      src_rects = img_areas[i]
 
-    let srois = rois.sort((a, b) => {
-      return Math.abs(a.r.width - a.r.height) - Math.abs(b.r.width - b.r.height);
-    }).reverse();
+      a, b = src_rects[j]
+      sx, sy = b.start, a.start
+      w, h = b.stop - b.start, a.stop - a.start
 
-    console.log(6);
+      #existing = find_matching_rect(allocator.bitmap, allocator.num_used_rows, packed, src, sx, sy, w, h)
+      #if existing:
+      #  dy, dx = existing
+      #  allocs[i][j] = (dy, dx)
+      #else:
+      dy, dx = allocator.allocate(w, h)
+      allocs[i][j] = (dy, dx)
 
+      packed[dy:dy+h, dx:dx+w] = src[sy:sy+h, sx:sx+w]
 
-    for (const {r,i, o} of srois) {
-      const width = r.width;
-      const height = r.height;
+    packed = packed[0:allocator.num_used_rows]
+    buffer = io.BytesIO()
+    iio.imwrite(buffer, packed, extension='.png')
+    buffer.seek(0)
+    buffer_content = buffer.getvalue()
 
-      // Find an available position to pack the component
-      let posX = 0;
-      let posY = 0;
-      let foundPosition = false;
-      while (!foundPosition) {
-        // Check if the current position is available
-        let isAvailable = true;
-        for (let y = posY; y < posY + height; y++) {
-          for (let x = posX; x < posX + width; x++) {
-            if (finalImage.ucharPtr(y, x)[0] !== 0) {
-              isAvailable = false;
-              break;
-            }
-          }
-          if (!isAvailable) {
-            break;
-          }
-        }
+    delays = (array(times[1:] + [times[-1] + END_FRAME_PAUSE]) - array(times)).tolist()
+    
+    timeline = []
+    for i in range(len(images)):
+      src_rects = img_areas[i]
+      dst_rects = allocs[i]
+      blitlist = []
 
-        // If the position is available, pack the component and exit the loop
-        if (isAvailable) {
-          const template = packedImage.roi(r);
+      for j in range(len(src_rects)):
+        a, b = src_rects[j]
+        sx, sy = b.start, a.start
+        w, h = b.stop - b.start, a.stop - a.start
+        dy, dx = dst_rects[j]
 
-          let dst = new cv.Mat();
-          let mask = new cv.Mat();
-          cv.matchTemplate(finalImage, template, dst, cv.TM_CCOEFF_NORMED, mask);
-          let minMaxLocResult = cv.minMaxLoc(dst, mask);
-          dst.delete();
-          mask.delete();
+        blitlist.append([dx, dy, w, h, sx, sy])
 
-          const { maxLoc } = minMaxLocResult;
-          const row = maxLoc.y;
-          const col = maxLoc.x;
+      timeline.append({'delay': delays[i], 'blit': blitlist})
+  `)
 
-          const packedRegion = finalImage.rowRange(row, row + height).colRange(col, col + width);
-          const srcRegion = packedImage.rowRange(r.y, r.y + height).colRange(r.x, r.x + width);
-          const compareResult = new cv.Mat();
-          cv.compare(packedRegion, srcRegion, compareResult, cv.CMP_EQ);
-          console.log(8);
+  const buffer = pyodide.globals.get('buffer_content').toJs();
+  const timeline = pyodide.globals.get('timeline').toJs();
+  const image = new Blob([buffer], { type: 'image/png' });
 
-          const compareGray = new cv.Mat();
-          cv.cvtColor(compareResult, compareGray, cv.COLOR_BGR2GRAY);
-          compareResult.delete();
-          console.log(9);
+  self.postMessage({ done: true, image, timeline});
 
-          const nonZeroCount = cv.countNonZero(compareGray);
-          compareGray.delete();
-
-          if (nonZeroCount !== width * height) {
-            const nr = new cv.Rect(posX, posY, width, height);
-            const qroi = finalImage.roi(nr);
-            template.copyTo(qroi);
-            nrs.push({i, rect: nr, oldrect: r});
-            nres.push({i, o, rect: {...nr, ...{y: nr.y + matrices[0].rows}}});
-          } 
-          else {
-            const match = nrs.find((nr) => nr.rect.x === col && nr.rect.y === row);
-            if (match) {
-              nrs.push({i, rect: match.rect, oldrect: match.rect});
-              nres.push({i, o, rect: {...match.rect, ...{y: match.rect.y + matrices[0].rows, width, height}}});
-            } else {
-              times.splice(i, 1);
-              const nr = new cv.Rect(posX, posY, width, height);
-              const qroi = finalImage.roi(nr);
-              template.copyTo(qroi);
-              nrs.push({i, rect: nr, oldrect: r});
-              nres.push({i, o, rect: {...nr, ...{y: nr.y + matrices[0].rows}}});
-            }
-          }
-          foundPosition = true;
-        } else {
-          // Move to the next position
-          posX++;
-          if (posX + width > finalImage.cols) {
-            posX = 0;
-            posY++;
-            if (posY + height > finalImage.rows) {
-              // No more available positions, exit the loop
-              break;
-            }
-          }
-        }
-      }
-    }
-
-    packedImage.delete();
-
-    console.log(10);
-
-    let snrs = nrs.sort((a, b) => {
-      return (a.rect.y + a.rect.height) - (b.rect.y + b.rect.height);
-    }).reverse();
-
-    const croppedImage = new cv.Mat();
-    finalImage.roi(new cv.Rect(0, 0, finalImage.cols, snrs[0].rect.y + snrs[0].rect.height)).copyTo(croppedImage);
-    finalImage.delete();
-
-    const input = new cv.MatVector();
-    input.push_back(matrices[0]);
-    input.push_back(croppedImage);
-    croppedImage.delete();
-
-    cv.vconcat(input, outputMatrix);
-    input.delete();
-  }
-
-  console.log(11);
-
-  // const times = [660305415, 660306038, 660306220, 660306414, 660306598, 660306790, 660307644, 660307810, 660307875, 660308049, 660308235, 660308285, 660309704];
-
-  const delays = times.slice(1).concat([times[times.length - 1] + END_FRAME_PAUSE])
-  .map((value, index) => value - times[index]);
-
-  timeline = [{
-    delay: 0, blit:[[0, 0, matrices[0].cols, matrices[0].rows, 0, 0]]
-  }];
-
-  nrois.forEach((_n, index) => {
-    let blitlist = [];
-    let n = nres.filter((r) => r.i === index).sort((a, b) => a.o - b.o);
-    for (let i = 0; i < n.length; i++) {
-      const {x, y, width, height} = n[i].rect;
-      blitlist.push([x, y, width, height, drois[index][i].x, drois[index][i].y, width, height]);
-    }
-    timeline.push({delay: delays[index], blit: blitlist});
-  });
-
-  self.postMessage({ done: true, image: imageDataFromMat(outputMatrix), timeline});
-  outputMatrix.delete();
+  debugger;
+  pyodide.runPython('import sys; sys.modules.clear()');
 }
 
-onmessage = function (e) {
+onmessage = async function (e) {
   switch (e.data.msg) {
     case 'load': {
       // Import Webassembly script
-      self.importScripts(e.data.payload);
-      waitForOpencv(function (success) {
-        if (success) postMessage({ msg: e.data.msg })
-        else throw new Error('Error on loading OpenCV')
-      })
+      self.importScripts(e.data.payload.pyodide);
+      if (!loadPyodide.inProgress) {
+        self.pyodide = await loadPyodide();
+      }
+      await pyodide.loadPackage(e.data.payload.packages)
       break
     }
     case 'processImages':
