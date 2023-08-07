@@ -16,7 +16,6 @@ const manifest = defineManifest(async () => ({
   options_page: "src/pages/options/index.html",
   background: { service_worker: "src/pages/background/index.ts"},
   action: {
-    default_popup: "src/pages/popup/index.html",
     default_icon: "icons/34x34.png"
   },
   chrome_url_overrides: {
@@ -34,13 +33,10 @@ const manifest = defineManifest(async () => ({
   devtools_page: "src/pages/devtools/index.html",
   web_accessible_resources: [
     {
-      resources: ["assets/js/*.js", "assets/css/*.css", "assets/img/*", "src/cv.worker.js", "src/opencv.js", 'src/pyodide/**'],
+      resources: ["assets/js/*.js", "assets/css/*.css", "assets/img/*", "src/cv.worker.js", 'src/pyodide/**'],
       matches: ["*://*/*"],
     },
   ],
-  content_security_policy: {
-    extension_pages: "script-src 'self' 'wasm-unsafe-eval'; object-src 'self'"
-  },
   permissions: [
     "activeTab",
     "webRequest"

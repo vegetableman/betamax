@@ -18,8 +18,11 @@
     },
     "type": "module",
     "dependencies": {
-        "opencv-wasm": "^4.3.0-10",
-        "solid-js": "^1.6.2"
+        "@webcomponents/custom-elements": "^1.6.0",
+        "solid-element": "^1.7.1",
+        "solid-js": "^1.6.2",
+        "solid-transition-group": "^0.2.2",
+        "webextension-polyfill": "^0.10.0"
     },
     "devDependencies": {
         "@crxjs/vite-plugin": "2.0.0-beta.7",

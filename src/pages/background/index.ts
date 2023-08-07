@@ -63,19 +63,42 @@
 //   }
 // });
 
-chrome.commands.onCommand.addListener(async (command) => {
-  console.log(`Command: ${command}`);
-  if (command === 'start_capture') {
-    chrome.tabs.query({ active: true, currentWindow: true }, function(tabs) {
-      // Send a message to the content script
-      chrome.tabs.sendMessage(tabs[0].id, { message: 'init' });
-      chrome.tabs.sendMessage(tabs[0].id, { message: 'startCapture' });
-    });
-    // await captureCurrentTab();
-  } else if (command === 'stop_capture') {
-    // captureTab = false;
-    chrome.tabs.query({ active: true, currentWindow: true }, function (tabs) {
-      chrome.tabs.sendMessage(tabs[0].id, { message: 'stopCapture' });
-    });
-  }
+// chrome.commands.onCommand.addListener(async (command) => {
+//   console.log(`Command: ${command}`);
+//   if (command === 'start_capture') {
+//     chrome.tabs.query({ active: true, currentWindow: true }, function(tabs) {
+//       // Send a message to the content script
+//       chrome.tabs.sendMessage(tabs[0].id, { message: 'init' });
+//       chrome.tabs.sendMessage(tabs[0].id, { message: 'startCapture' });
+//     });
+//     // await captureCurrentTab();
+//   } else if (command === 'stop_capture') {
+//     // captureTab = false;
+//     chrome.tabs.query({ active: true, currentWindow: true }, function (tabs) {
+//       chrome.tabs.sendMessage(tabs[0].id, { message: 'stopCapture' });
+//     });
+//   }
+// });
+
+let bg = {
+  screenshots: null,
+  times: null
+};
+
+chrome.action.onClicked.addListener(function(tab) {
+  chrome.tabs.query({ active: true, currentWindow: true }, function (tabs) {
+    chrome.tabs.sendMessage(tabs[0].id, { message: 'viewFrame' });
+  });
 });
+
+chrome.runtime.onMessage.addListener(async (req, sender, res) => {
+  if (req.type === 'process_screenshots') {
+    const {screenshots, times} = req.data;
+    bg.screenshots = screenshots;
+    bg.times = times;
+    chrome.tabs.create({url: 'frame-list.html' }, (tab) => {
+      chrome.tabs.sendMessage(tab.id, { data: {screenshots, times} });
+    });
+    res(true)
+  }
+})

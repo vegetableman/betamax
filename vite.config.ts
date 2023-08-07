@@ -17,10 +17,20 @@ const isDev = process.env.__DEV__ === "true";
 
 export default defineConfig({
   plugins: [solidPlugin(), crx({ manifest }), WindiCSS(), copyPlugin({
-    targets: [{
-      src: root + '/opencv.js',
-      dest: outDir + '/assets'
-    }]
+    targets: [
+    {
+      src: root + '/frame-list.html',
+      dest: outDir
+    },
+    {
+      src: root + '/frame.js',
+      dest: outDir
+    },
+    {
+      src: root + '/preact.js',
+      dest: outDir
+    }
+  ]
   })],
   resolve: {
     alias: {
