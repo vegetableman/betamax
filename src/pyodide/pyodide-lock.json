@@ -1,0 +1,242 @@
+{
+"info": {
+"arch": "wasm32",
+"platform": "emscripten_3_1_39",
+"version": "0.24.0.dev0",
+"python": "3.11.3"
+},
+"packages": {
+"distutils": {
+"name": "distutils",
+"version": "1.0.0",
+"file_name": "distutils-1.0.0.zip",
+"install_dir": "stdlib",
+"sha256": "42fc4db598bd666b4cee504e0450419599aeea6000fdd0715d48b997974f0a7e",
+"package_type": "cpython_module",
+"imports": [
+"distutils"
+],
+"depends": [],
+"unvendored_tests": false,
+"shared_library": true
+},
+"hashlib": {
+"name": "hashlib",
+"version": "1.0.0",
+"file_name": "hashlib-1.0.0.zip",
+"install_dir": "stdlib",
+"sha256": "0a90bb7e78dd3935310b0060fa5de659a03b0b1417a5164b61a79d26f195bce6",
+"package_type": "cpython_module",
+"imports": [
+"_hashlib"
+],
+"depends": [
+"openssl"
+],
+"unvendored_tests": false,
+"shared_library": true
+},
+"lzma": {
+"name": "lzma",
+"version": "1.0.0",
+"file_name": "lzma-1.0.0.zip",
+"install_dir": "stdlib",
+"sha256": "4e16ed74a23a15ddbb05ec671201451062dbfe4e2cd7c6a4b918cf077056028b",
+"package_type": "cpython_module",
+"imports": [
+"lzma",
+"_lzma"
+],
+"depends": [],
+"unvendored_tests": false,
+"shared_library": true
+},
+"micropip": {
+"name": "micropip",
+"version": "0.3.0",
+"file_name": "micropip-0.3.0-py3-none-any.whl",
+"install_dir": "site",
+"sha256": "e8977ba42c6ffe33a854ac3d57cdfdb9024ae407985a747aa900ad99cb300cfa",
+"package_type": "package",
+"imports": [
+"micropip"
+],
+"depends": [
+"packaging"
+],
+"unvendored_tests": false,
+"shared_library": false
+},
+"numpy": {
+"name": "numpy",
+"version": "1.24.3",
+"file_name": "numpy-1.24.3-cp311-cp311-emscripten_3_1_39_wasm32.whl",
+"install_dir": "site",
+"sha256": "950aeb28c470ff21a6fe16ec240e8a97067debaec2b869f7323190d29393de52",
+"package_type": "package",
+"imports": [
+"numpy"
+],
+"depends": [],
+"unvendored_tests": true,
+"shared_library": false
+},
+"numpy-tests": {
+"name": "numpy-tests",
+"version": "1.24.3",
+"file_name": "numpy-tests.tar",
+"install_dir": "site",
+"sha256": "6bfef453e5b03c92101536e511d5c0f252ea1dbddad55abb6ba3594175b65190",
+"package_type": "package",
+"imports": [],
+"depends": [
+"numpy"
+],
+"unvendored_tests": false,
+"shared_library": false
+},
+"openblas": {
+"name": "openblas",
+"version": "0.3.23",
+"file_name": "openblas-0.3.23.zip",
+"install_dir": "dynlib",
+"sha256": "760cd7127642a9d14a192570d8e73d73eedc1e019d654b86fbfb95258d4ea1f3",
+"package_type": "shared_library",
+"imports": [],
+"depends": [],
+"unvendored_tests": false,
+"shared_library": true
+},
+"openssl": {
+"name": "openssl",
+"version": "1.1.1n",
+"file_name": "openssl-1.1.1n.zip",
+"install_dir": "dynlib",
+"sha256": "a45f9e94337becb8a9aebe00b227d0b1abba02799066ee61429ab0c8b4246e3a",
+"package_type": "shared_library",
+"imports": [],
+"depends": [],
+"unvendored_tests": false,
+"shared_library": true
+},
+"packaging": {
+"name": "packaging",
+"version": "23.0",
+"file_name": "packaging-23.0-py3-none-any.whl",
+"install_dir": "site",
+"sha256": "b1ccbccb93cc43325df0fb96c6b1cd785c09481f4a228092b153bbc09f61f853",
+"package_type": "package",
+"imports": [
+"packaging"
+],
+"depends": [],
+"unvendored_tests": false,
+"shared_library": false
+},
+"pydecimal": {
+"name": "pydecimal",
+"version": "1.0.0",
+"file_name": "pydecimal-1.0.0.zip",
+"install_dir": "stdlib",
+"sha256": "8dd3578d9112270a8f274404ec10359eb26ad01cf0ab322943daddc2b783aa54",
+"package_type": "cpython_module",
+"imports": [
+"_pydecimal"
+],
+"depends": [],
+"unvendored_tests": false,
+"shared_library": true
+},
+"pydoc_data": {
+"name": "pydoc_data",
+"version": "1.0.0",
+"file_name": "pydoc_data-1.0.0.zip",
+"install_dir": "stdlib",
+"sha256": "2f1302b8784889846eadd38a64b792c9194d0988b48abe0fa4c4650451a4092a",
+"package_type": "cpython_module",
+"imports": [
+"pydoc_data"
+],
+"depends": [],
+"unvendored_tests": false,
+"shared_library": true
+},
+"scipy": {
+"name": "scipy",
+"version": "1.10.1",
+"file_name": "scipy-1.10.1-cp311-cp311-emscripten_3_1_39_wasm32.whl",
+"install_dir": "site",
+"sha256": "58bc042ff6806fd1d489cbe9d002af1eb37b6c6a4e70571443d125d309de45ab",
+"package_type": "package",
+"imports": [
+"scipy"
+],
+"depends": [
+"numpy",
+"openblas"
+],
+"unvendored_tests": true,
+"shared_library": false
+},
+"scipy-tests": {
+"name": "scipy-tests",
+"version": "1.10.1",
+"file_name": "scipy-tests.tar",
+"install_dir": "site",
+"sha256": "f87cc4adacc8a0ece42495d29a31c94175a5fd9b82afc76aa9c453f8512687d7",
+"package_type": "package",
+"imports": [],
+"depends": [
+"scipy"
+],
+"unvendored_tests": false,
+"shared_library": false
+},
+"sqlite3": {
+"name": "sqlite3",
+"version": "1.0.0",
+"file_name": "sqlite3-1.0.0.zip",
+"install_dir": "stdlib",
+"sha256": "75465f1c1efbf122f1d7331deb5bf29f1a93c036caf25210510cf9f826670357",
+"package_type": "cpython_module",
+"imports": [
+"sqlite3",
+"_sqlite3"
+],
+"depends": [],
+"unvendored_tests": false,
+"shared_library": true
+},
+"ssl": {
+"name": "ssl",
+"version": "1.0.0",
+"file_name": "ssl-1.0.0.zip",
+"install_dir": "stdlib",
+"sha256": "da9954bec4089f5aed7bcef2f16a8f200629aeadce075cbfc2fd462907cf525c",
+"package_type": "cpython_module",
+"imports": [
+"ssl",
+"_ssl"
+],
+"depends": [
+"openssl"
+],
+"unvendored_tests": false,
+"shared_library": true
+},
+"test": {
+"name": "test",
+"version": "1.0.0",
+"file_name": "test-1.0.0.zip",
+"install_dir": "stdlib",
+"sha256": "6d2d2f559e9f036b2f7bcdf05932dd197eb96ad9ca31030b2447a234ebeaf207",
+"package_type": "cpython_module",
+"imports": [
+"test"
+],
+"depends": [],
+"unvendored_tests": false,
+"shared_library": true
+}
+}
+}

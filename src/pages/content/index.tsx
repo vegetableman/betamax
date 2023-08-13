@@ -4,6 +4,9 @@ import { children, createEffect, createSignal, onCleanup } from "solid-js";
 import  {render} from "solid-js/web";
 import { customElement } from "solid-element";
 import FrameManager from '@src/frame-manager';
+import JSZip from "jszip";
+
+const TITLE_BAR_HEIGHT = 40;
 
 const style = `
   .frame {
@@ -16,9 +19,8 @@ const style = `
     display: flex;
     align-items: center;
     justify-content: space-between;
-    flex: 0 0 40px;
+    flex: 0 0 ${TITLE_BAR_HEIGHT}px;
     background: #333;
-    padding: 0 10px;
   }
   .record-btn, .stop-btn {
     background: #fd6900;
@@ -97,7 +99,7 @@ const style = `
   .se {
     position: absolute;
     right: 0;
-    bottom: -355px;
+    bottom: calc(-355px - ${TITLE_BAR_HEIGHT}px);
     width: 15px;
     cursor: se-resize;
     height: 15px;
@@ -158,7 +160,7 @@ const style = `
     width: 100%;
     height: 355px;
     position: absolute;
-    top: 40px;
+    top: ${TITLE_BAR_HEIGHT}px;
     background: #33333352;
     color: #fff;
     text-align: center;
@@ -174,16 +176,17 @@ const style = `
   }
   .config {
     position: absolute;
-    top: 40px;
+    top: ${TITLE_BAR_HEIGHT}px;
     width: 100%;
     height: 400px;
+    overflow: auto;
     background: #333333e3;
     color: #fff;
   }
   .config > .row {
     display: flex;
     justify-content: flex-start;
-    padding: 15px;
+    padding: 15px 5px;
   }
 
   .config input {
@@ -200,6 +203,18 @@ const style = `
 
   .config .output-row input {
     width: 70px;
+  }
+
+  .cfg-close-btn {
+    position: absolute;
+    top: 0;
+    right: 7px;
+    color: silver;
+    cursor: pointer;
+  }
+
+  .cfg-close-btn:hover {
+    color: #fff;
   }
 `;
 
@@ -254,6 +269,7 @@ function Resizer(props) {
 }
 
 const DEFAULT_FRAME_INTERVAL = 16;
+const zip = new JSZip();
 
 customElement("my-counter", {}, () => {
   let frame;
@@ -270,7 +286,8 @@ customElement("my-counter", {}, () => {
   const [isStarting, setIsStarting] = createSignal(false);
   const [showConfig, toggleConfig] = createSignal(false);
   const [interval, setFrameInterval] = createSignal(DEFAULT_FRAME_INTERVAL);
-  const [dimension, setDimension] = createSignal({width: 400, height: 400, manual: false});
+  const [dimension, setDimension] = createSignal({width: 400, height: 400});
+  const [outputDimension, setOutputDimension] = createSignal({width: 400, height: 400});
   const [time, setTime] = createSignal('00:00');
   const [countDown, setCountDown] = createSignal(3);
 
@@ -332,6 +349,20 @@ customElement("my-counter", {}, () => {
     return`${formattedMinutes}:${formattedSeconds}`;
   }
 
+  function dataURLToDataView(dataURL) {
+    // const base64String = dataURL.split(',')[1];
+    // const binaryString = atob(base64String);
+    // const uint8Array = new Uint8Array(binaryString.length);
+  
+    // for (let i = 0; i < binaryString.length; i++) {
+    //   uint8Array[i] = binaryString.charCodeAt(i);
+    // }
+  
+    // return Array.from(uint8Array);
+    const binaryImage = atob(dataURL.split(',')[1]); // Convert base64 to binary
+    const imageBlob = new Blob([new Uint8Array([...binaryImage].map(char => char.charCodeAt(0)))]);
+  }
+
   function startCapture() {
     async function captureElementScreenshots() {
       // Request screen capture permission
@@ -373,7 +404,7 @@ customElement("my-counter", {}, () => {
       });
     
       let screenshots = [];
-      const times = [];
+      let times = [];
       // const rect = document.documentElement.getBoundingClientRect();
       let r = frame.getBoundingClientRect();
       r = {
@@ -417,7 +448,12 @@ customElement("my-counter", {}, () => {
         // context.drawImage(videoElement, 0, 0, canvas.width, canvas.height);
         // Convert the canvas image to a data URL
         // const dataURL = await cropImage(canvas.toDataURL('image/png'), 0, 0, 400, 400);
-        screenshots.push(canvas.toDataURL('image/png'));
+        // screenshots.push(canvas.toDataURL('image/png'));
+        // screenshots.push();
+        canvas.toBlob((blob) => {
+          // screenshots.push(blob)
+          zip.file(`${t}.png`, blob);
+        })
         // Add the screenshot to the array
         // screenshots.push(dataURL);
       }, interval);
@@ -427,6 +463,8 @@ customElement("my-counter", {}, () => {
         setIsRecording(false);
         cancelTimer();
         stream.getTracks().forEach(track => track.stop());
+        console.log('screenshots:', screenshots);
+        // chrome.storage.local.set({screenshots});
         // debugger;
         // screenshots.forEach((s, i) => {
         // 	createImageDownloadLink(s, `${times[i]}.png`);
@@ -439,6 +477,8 @@ customElement("my-counter", {}, () => {
         // console.log(screenshots);
         // console.log(await Promise.all(screenshots));
         processScreenshots(screenshots, times);
+        screenshots = [];
+        times = [];
       }
 
       stream.getVideoTracks()[0].onended = function () {
@@ -451,32 +491,153 @@ customElement("my-counter", {}, () => {
       
       async function processScreenshots(screenshots, times) {
 
-        const messageToBgScript = {
-          type: 'process_screenshots',
-          data:  {screenshots, times}
-        };
+        zip.generateAsync({type:"blob"}).then(async function(content) {
+          // see FileSaver.js
+          // saveAs(content, "example.zip");
+          console.log('content:', content);
+          // let link = document.createElement('a')
+          // link.rel = 'noopener'
+          // link.href = URL.createObjectURL(content) // DOES NOT WORK
+          // link.download = 'images.zip'
+          // setTimeout(function () { URL.revokeObjectURL(link.href) }, 4E4) // 40s
+          // setTimeout(function () { link.click() }, 0)
+          try {
+            const handle = await window.showSaveFilePicker({
+              suggestedName: "images.zip",
+              types: [
+                {
+                  description: 'ZIP Files',
+                  accept: {
+                    'application/zip': ['.zip'],
+                  },
+                },
+              ],
+            });
+        
+            const writableStream = await handle.createWritable();
+            await writableStream.write(content);
+            await writableStream.close();
+
+            const messageToBgScript = {
+              type: 'process_screenshots'
+            };
+    
+            chrome.runtime.sendMessage(messageToBgScript, (response) => {
+              // Optional: Handle the response from the background script
+              console.log('Response from background:', response);
+            });
+
+            // Store the handle in IndexedDB
+            // const open = await indexedDB.open('handlesDB', 1);
+            // open.onupgradeneeded = function() {
+            //   var db = open.result;
+            //   var store = db.createObjectStore('handlesStore');
+            // }
+            // open.onsuccess = function() {
+            //   var db = open.result;
+            //   const transaction = db.transaction('handlesStore', 'readwrite');
+            //   const objectStore = transaction.objectStore('handlesStore');
+            //   objectStore.put(handle, 'savedZipHandle');
+            //   transaction.oncomplete = function() {
+            //     db.close();
+            //   };
+            // }
+        
+            console.log('File saved successfully using FileSavePicker.', handle);
+          } catch (error) {
+            console.error('An error occurred:', error);
+          }
+        });
+
+        // window.open(chrome.runtime.getURL('src/frame.html'), "Popup", "width=400,height=300")
+
+        // const dbName = 'imageDB';
+        // const dbVersion = 1;
+
+        // const request = indexedDB.open(dbName, dbVersion);
+
+        // request.onerror = event => {
+        //   console.error('Error opening database:', event.target.error);
+        // };
+
+        // request.onupgradeneeded = event => {
+        //   const db = event.target.result;
+
+        //   // Create an object store for images
+        //   db.createObjectStore('images', { keyPath: 'id', autoIncrement: true });
+        // };
+
+        // request.onsuccess = event => {
+        //   const db = event.target.result;
+        
+        //   const transaction = db.transaction('images', 'readwrite');
+        //   const store = transaction.objectStore('images');
+        //   screenshots.forEach((b, index) => {
+        //     store.put({ id: index, image: b });
+        //   });
+        //   transaction.oncomplete = () => {
+        //     console.log('Images stored successfully.');
+        //   };
+        
+        //   transaction.onerror = event => {
+        //     console.error('Error storing images:', event.target.error);
+        //   };
+        // }
+
+
+
+        // const batchSize = 200;
+
+        // for (let i = 0; i < screenshots.length; i += batchSize) {
+        //   const s = screenshots.slice(i, i + batchSize);
+        //   const t = times.slice(i, i + batchSize);
+
+        //   console.log('s:', s);
+        //   // Now `batch` contains up to 10 items to process together
+        
+        //   // Your processing logic for the batch goes here
+        //   // For example, you can loop through the batch and do something with each item
+        //   // const messageToBgScript = {
+        //   //   type: 'process_screenshots',
+        //   //   data:  {screenshots: s, times: t, end: (i + batchSize >= screenshots.length), dimensions: outputDimension()}
+        //   // };
+  
+        //   // chrome.runtime.sendMessage(messageToBgScript, (response) => {
+        //   //   // Optional: Handle the response from the background script
+        //   //   console.log('Response from background:', response);
+        //   // });
+
+        //   // chrome.storage.local.set({screenshots: s});
+        // }
+
+        // const messageToBgScript = {
+        //   type: 'process_screenshots',
+        //   data:  {screenshots, times, dimensions: outputDimension()}
+        // };
 
         // chrome.runtime.sendMessage(messageToBgScript, (response) => {
         //   // Optional: Handle the response from the background script
         //   console.log('Response from background:', response);
         // });
 
+        // let newtab = window.open('chrome-extension://hlldadkmohenombjfpfinmpnlppldogf/src/frame-list.html')
+        // newtab.postMessage("hello world");
         // let FrameManager = FrameManager(screenshots, times);
-        const root = document.createElement("div");
-        root.style = "position: fixed; top: 0; left: 0; width: 100%; z-index: 21474836478; background: #fff; overflow: scroll; height: 100vh"
-        root.id = "frame-root";
-        document.body.append(root);
+        // const root = document.createElement("div");
+        // root.style = "position: fixed; top: 0; left: 0; width: 100%; z-index: 21474836478; background: #fff; overflow: scroll; height: 100vh"
+        // root.id = "frame-root";
+        // document.body.append(root);
 
-        render(() => {
-          let d = dimension();
-          return <FrameManager screenshots={screenshots} times={times} dimension={d.manual ? d: null}/>
-        }, root)
+        // render(() => {
+        //   let d = dimension();
+        //   return <FrameManager screenshots={screenshots} times={times} dimension={outputDimension() ? d: null}/>
+        // }, root)
         // debugger;
         // console.log(frames);
         // document.body.appendChild(frames);
 
         // chrome.tabs.create({url: 'frame-list.html' }, (tab) => {
-        //   chrome.tabs.sendMessage(tab.id, { data: {screenshots, times} });
+        //   chrome.tabs.sendMessage(tab.id, { data: {screenshots, times, dimension: outputDimension()} });
         // });
         
         // Example: Log the screenshots array
@@ -498,8 +659,12 @@ customElement("my-counter", {}, () => {
   createEffect(() => {
     if (isStarting() && overlay) {
       console.log('isStarting():', isStarting());
-      overlay.style.height = parseInt(w.style.height) - 40 + 'px';
+      overlay.style.height = parseInt(w.style.height) - TITLE_BAR_HEIGHT + 'px';
     }
+  })
+
+  createEffect(() => {
+    setOutputDimension(dimension());
   })
 
   return (
@@ -507,6 +672,7 @@ customElement("my-counter", {}, () => {
       style={{
         position: 'fixed',
         width: dimension().width + 'px',
+        "min-width": '200px',
         left: `${elementOffset().x}px`,
         top: `${elementOffset().y}px`,
         "z-index": "2147483647"
@@ -520,7 +686,7 @@ customElement("my-counter", {}, () => {
             <span>Record</span>
           </button>: null}
           {isRecording() ? <button class="stop-btn" onClick={() => {
-             document.dispatchEvent(stopEvent);
+            document.dispatchEvent(stopEvent);
           }}>
             <span class="icon">◼</span>
             <span>Stop</span>
@@ -551,52 +717,52 @@ customElement("my-counter", {}, () => {
           <div class="row output-row">
               <span>Output Dimensions (px): </span>
               <span class="input-wrapper">
-                <input type="text" value={dimension().width} onchange={(e) => {
+                <input type="text" value={outputDimension().width} onchange={(e) => {
                    let {value} = e.target;
                    let v = parseInt(value);
-                   !Number.isNaN(v) && v > 0 && setDimension({width: v, height: dimension().height, manual: true});
+                   !Number.isNaN(v) && v > 0 && setOutputDimension({width: v, height: outputDimension().height});
                 }}/>
                 <span class="x">X</span>
-                <input type="text" value={dimension().height} onchange={(e) => {
+                <input type="text" value={outputDimension().height} onchange={(e) => {
                   let {value} = e.target;
                   let v = parseInt(value);
-                  !Number.isNaN(v) && v > 0 && setDimension({width: dimension().width, height: v, manual: true});
+                  !Number.isNaN(v) && v > 0 && setOutputDimension({width: outputDimension().width, height: v});
                 }}/>
               </span>
           </div>
+          <span class="cfg-close-btn" onclick={() => {
+            toggleConfig((c) => !c);
+          }}>✖</span>
         </div> : null}
         <div class="mirror" data-disabled={isRecording()}>
           <Resizer disabled={isRecording()} frameRef={frame} onResize={(dir, width, deltaX, deltaY) => {
              if (dir === 'e') {
-              setDimension({width: width + deltaX, height: dimension().height, manual: false});
+              setDimension({width: width + deltaX, height: dimension().height});
             }
-            else if (dir === 's') {
+            else if (dir === 's' || dir === 'se') {
               const h = dimension().height + deltaY;
-              s.style.bottom = `${parseInt(getComputedStyle(s).bottom) - deltaY}px`;
-              setDimension({width: dimension().width, height: h, manual: false});
-              se.style.bottom = `${parseInt(getComputedStyle(se).bottom) - deltaY}px`;
+               if (h < 45) return;
+              s.style.bottom = `${Math.min(parseInt(getComputedStyle(s).bottom) - deltaY, -55)}px`;
+              se.style.bottom = `${Math.min(parseInt(getComputedStyle(se).bottom) - deltaY, -40)}px`;
+              setDimension({width: dir === 'se' ? width + deltaX: dimension().width, height: h});
             }
             else if (dir === 'n') {
               const h = dimension().height - deltaY;
+              if (h < 45) return;
+              console.log('h', h, parseInt(getComputedStyle(frame).top) + deltaY, deltaY)
               frame.style.top = `${parseInt(getComputedStyle(frame).top) + deltaY}px`;
-              setDimension({width: dimension().width, height: h, manual: false});
+              setDimension({width: dimension().width, height: h});
               s.style.bottom = `${parseInt(getComputedStyle(s).bottom) + deltaY}px`;
-            }
-            else if (dir === 'se') {
-              const h = dimension().height + deltaY;
-              s.style.bottom = `${parseInt(getComputedStyle(s).bottom) - deltaY}px`;
-              se.style.bottom = `${parseInt(getComputedStyle(se).bottom) - deltaY}px`;
-              setDimension({width: dimension().width, height: h, manual: false});
-              frame.style.width = `${width + deltaX}px`;
+              se.style.bottom = `${parseInt(getComputedStyle(se).bottom) + deltaY}px`;
             }
           }}>
             <div class="n" ref={n}>
               <div></div>
             </div>
-            <div class="w" ref={w} style={{height: dimension().height + 40 + 'px'}}>
+            <div class="w" ref={w} style={{height: dimension().height + TITLE_BAR_HEIGHT + 'px'}}>
               <div></div>
             </div>
-            <div class="e" ref={e} style={{height: dimension().height + 40 + 'px'}}>
+            <div class="e" ref={e} style={{height: dimension().height + TITLE_BAR_HEIGHT + 'px'}}>
               <div></div>
             </div>
             <div class="s" ref={s}>
