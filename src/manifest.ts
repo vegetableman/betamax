@@ -37,9 +37,18 @@ const manifest = defineManifest(async () => ({
       matches: ["*://*/*"],
     },
   ],
+  content_security_policy: {
+    sandbox: "sandbox allow-scripts allow-forms allow-popups allow-modals; script-src 'self' 'unsafe-inline' 'unsafe-eval'; child-src 'self';"
+  },
+  sandbox: {
+    pages: [
+      "src/sandbox.html"
+    ]
+  },
   permissions: [
     "activeTab",
-    "webRequest"
+    "webRequest",
+    "tabs"
   ],
   host_permissions: [
     "http://*/*",

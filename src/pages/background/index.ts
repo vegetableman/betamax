@@ -81,8 +81,8 @@
 // });
 
 let bg = {
-  screenshots: null,
-  times: null
+  screenshots: [],
+  times: []
 };
 
 chrome.action.onClicked.addListener(function(tab) {
@@ -93,12 +93,24 @@ chrome.action.onClicked.addListener(function(tab) {
 
 chrome.runtime.onMessage.addListener(async (req, sender, res) => {
   if (req.type === 'process_screenshots') {
-    const {screenshots, times} = req.data;
-    bg.screenshots = screenshots;
-    bg.times = times;
-    chrome.tabs.create({url: 'frame-list.html' }, (tab) => {
-      chrome.tabs.sendMessage(tab.id, { data: {screenshots, times} });
+    // const {screenshots, times, end} = req.data;
+    // bg.screenshots = [...bg.screenshots, ...screenshots]
+    // bg.times = [...bg.times, ...times]
+    // console.log('end:', end);
+    // console.log('bg:', bg);
+    // if (end) {
+    //   bg = {
+    //     screenshots: [],
+    //     times: []
+    //   };;
+    // }
+    // bg.screenshots = screenshots;
+    // bg.times = times;
+    chrome.tabs.create({url: 'src/frame.html', active: true }, (tab) => {
+      // chrome.tabs.sendMessage(tab.id, { data: {screenshots, times} });
     });
+
     res(true)
   }
 })
+
