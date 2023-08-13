@@ -1,6 +1,50 @@
 import { For, Show, createSignal, onMount } from "solid-js";
+// import  {render} from "solid-js/web";
 import { TransitionGroup } from "solid-transition-group";
 import cv from "./cv";
+import JSZip from "jszip";
+
+
+// chrome.runtime.onMessage.addListener(async (req, sender, res) => {
+//   const { screenshots, times, dimensions } = req.data;
+//   console.log(screenshots, times);
+//   // screenshots.forEach((s) => {
+//   //   console.log('s:', s);
+//   // })
+//   const root = document.createElement("div");
+//   root.id = "frame-root";
+//   document.body.append(root);
+
+//   render(() => {
+//     return <FrameManager screenshots={screenshots} times={times} dimension={dimensions}/>
+//   }, root)
+// });
+
+// window.addEventListener(
+//   "message",
+//   (event) => {
+//     // Do we trust the sender of this message?  (might be
+//     // different from what we originally opened, for example).
+//     console.log('event:', event);
+//     // event.source is popup
+//     // event.data is "hi there yourself!  the secret response is: rheeeeet!"
+//   },
+//   false,
+// );
+
+
+window.chrome = {
+  runtime: {
+    getURL: (path) => {
+      return `chrome-extension://hlldadkmohenombjfpfinmpnlppldogf/${path}`
+    }
+  }
+}
+
+window.onload = async () => {
+  console.log('load')
+  await cv.load();
+}
 
 const delay_scale = 0.9
 let timer = null
@@ -230,8 +274,6 @@ const FrameManager = (props) => {
           </div>
           <div>
             <select onchange={(e) => {
-              // debugger;
-              // console.log('value:', e.target.value);
               const { value } = e.target;
               value && setFormat(value);
             }}>
@@ -262,5 +304,4 @@ const FrameManager = (props) => {
     </div>
   )
 }
-
 export default FrameManager;

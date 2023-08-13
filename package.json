@@ -14,11 +14,13 @@
         "lint": "eslint . --fix -c .eslintrc --ext js,ts --ignore-pattern='!.*'",
         "dev:nodemon": "nodemon",
         "build:noemit": "tsc --noEmit && vite build",
-        "test": "jest"
+        "test": "jest",
+        "predev": "vite build --config vite-frame.config.ts"
     },
     "type": "module",
     "dependencies": {
         "@webcomponents/custom-elements": "^1.6.0",
+        "jszip": "^3.10.1",
         "solid-element": "^1.7.1",
         "solid-js": "^1.6.2",
         "solid-transition-group": "^0.2.2",
