@@ -7,11 +7,9 @@ import WindiCSS from "vite-plugin-windicss";
 import manifest from "./src/manifest";
 
 const root = resolve(__dirname, "src");
-const out = resolve(__dirname, "out");
 const pagesDir = resolve(root, "pages");
 const assetsDir = resolve(root, "assets");
 const outDir = resolve(__dirname, "dist");
-// const externalDir = resolve(__dirname, "external");
 const publicDir = resolve(__dirname, "public");
 
 const isDev = process.env.__DEV__ === "true";
@@ -27,17 +25,9 @@ export default defineConfig({
       src: root + '/frame.html',
       dest: outDir + '/src'
     },
-    // {
-    //   src: root + '/frame.js',
-    //   dest: outDir
-    // },
-    // {
-    //   src: 'out/frame-manager.js',
-    //   dest: outDir + '/src'
-    // },
     {
-      src: out + '/frame-manager.js',
-      dest: outDir + '/src'
+      src: root + '/lib/frame-manager.js',
+      dest: outDir + '/src/lib'
     }
   ]
   })],

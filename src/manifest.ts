@@ -38,7 +38,7 @@ const manifest = defineManifest(async () => ({
     },
   ],
   content_security_policy: {
-    sandbox: "sandbox allow-scripts allow-forms allow-popups allow-modals; script-src 'self' 'unsafe-inline' 'unsafe-eval'; child-src 'self';"
+    sandbox: "sandbox allow-scripts allow-forms allow-popups allow-modals; script-src 'self' 'unsafe-inline' 'unsafe-eval'; child-src 'self' blob:;"
   },
   sandbox: {
     pages: [

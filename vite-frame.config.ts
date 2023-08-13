@@ -1,7 +1,7 @@
 // vite.config.js
 import solidPlugin from 'vite-plugin-solid';
-import copyPlugin from 'rollup-plugin-copy';
 import { resolve } from "path";
+const root = resolve(__dirname, "src");
 
 export default {
   plugins: [solidPlugin()],
@@ -12,6 +12,6 @@ export default {
         entryFileNames: "[name].js"
       }
     },
-    outDir: resolve(__dirname, "lib")
+    outDir: root + "/lib"
   },
 };
