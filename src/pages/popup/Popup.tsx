@@ -1,6 +1,4 @@
-import logo from "@assets/img/logo.svg";
 import "@src/styles/index.css";
-import cv from '@src/cv';
 import styles from "./Popup.module.css";
 
 const Popup = () => {
@@ -9,14 +7,8 @@ const Popup = () => {
     chrome.tabs.query({ active: true, currentWindow: true }, function(tabs) {
       // Send a message to the content script
       chrome.tabs.sendMessage(tabs[0].id, { message: 'init' });
-      // chrome.runtime.sendMessage({
-      //   message: 'startCapture'
-      // });
       chrome.tabs.sendMessage(tabs[0].id, { message: 'startCapture' });
     });
-    // chrome.tabs.query({ active: true, currentWindow: true }, function (tabs) {
-    //   chrome.tabs.sendMessage(tabs[0].id, { message: 'startCapture' });
-    // });
   }
 
   function stop() {

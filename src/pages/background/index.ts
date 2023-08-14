@@ -1,68 +1,3 @@
-/* eslint-disable no-undef */
-
-// async function getCurrentTab() {
-//   let queryOptions = { active: true, lastFocusedWindow: true };
-//   // `tab` will either be a `tabs.Tab` instance or `undefined`.
-//   let [tab] = await chrome.tabs.query(queryOptions);
-//   return tab;
-// }
-
-// function delay(millisec) {
-//   return new Promise(resolve => {
-//       setTimeout(() => { resolve('') }, millisec);
-//   })
-// // }
-
-// let images = [];
-// let captureTab = false;
-
-// async function captureCurrentTab() {
-//   console.log('capture');
-//   images = [];
-//   const tab = await getCurrentTab();
-//   console.log('tab:', tab);
-//   if (!tab) {
-//     return;
-//   }
-//   captureTab = true;
-//   while (captureTab) {
-//     const img = await chrome.tabs.captureVisibleTab(tab.windowId);
-//     images.push(img);
-//     await delay(250);
-//   }
-//   console.log('images:', images);
-// }
-
-// let messageRes;
-
-// chrome.runtime.onMessage.addListener(async (req, sender, res) => {
-//   if (req.message === 'capture') {
-//     console.log('req', req);
-//     // console.log('capture');
-//     // // images = [];
-//     // const tab = await getCurrentTab();
-//     // console.log('tab:', tab);
-//     // if (!tab) {
-//     //   return;
-//     // }
-//     // captureTab = true;
-//     // while (captureTab) {
-//     //   const img = await chrome.tabs.captureVisibleTab(tab.windowId);
-//     //   console.log('img:', img);
-//     //   images.push(img);
-//     //   await delay(250);
-//     // }
-//     // console.log('images:', images);
-//     // await captureCurrentTab();
-//     images = req.screenshots;
-//   } else if (req.message === 'stop') {
-//     captureTab = false;
-//     // console.log('images', images);
-//     // chrome.tabs.sendMessage(tab.id, {message: 'process_images'});
-//     res(images);
-//   }
-// });
-
 // chrome.commands.onCommand.addListener(async (command) => {
 //   console.log(`Command: ${command}`);
 //   if (command === 'start_capture') {
@@ -80,11 +15,6 @@
 //   }
 // });
 
-let bg = {
-  screenshots: [],
-  times: []
-};
-
 chrome.action.onClicked.addListener(function(tab) {
   chrome.tabs.query({ active: true, currentWindow: true }, function (tabs) {
     chrome.tabs.sendMessage(tabs[0].id, { message: 'viewFrame' });
@@ -93,23 +23,12 @@ chrome.action.onClicked.addListener(function(tab) {
 
 chrome.runtime.onMessage.addListener(async (req, sender, res) => {
   if (req.type === 'process_screenshots') {
-    // const {screenshots, times, end} = req.data;
-    // bg.screenshots = [...bg.screenshots, ...screenshots]
-    // bg.times = [...bg.times, ...times]
-    // console.log('end:', end);
-    // console.log('bg:', bg);
-    // if (end) {
-    //   bg = {
-    //     screenshots: [],
-    //     times: []
-    //   };;
-    // }
-    // bg.screenshots = screenshots;
-    // bg.times = times;
-    chrome.tabs.create({url: 'src/frame.html', active: true }, (tab) => {
-      // chrome.tabs.sendMessage(tab.id, { data: {screenshots, times} });
+    const { dimension } = req.payload;
+    chrome.tabs.create({url: 'src/frame.html'}, (tab) => {
+      setTimeout(() => {
+        chrome.tabs.sendMessage(tab.id, { payload: dimension });
+      }, 1000);
     });
-
     res(true)
   }
 })

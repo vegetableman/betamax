@@ -28,6 +28,10 @@ export default defineConfig({
     {
       src: root + '/lib/frame-manager.js',
       dest: outDir + '/src/lib'
+    },
+    {
+      src: root + '/frame-runtime.js',
+      dest: outDir + '/src'
     }
   ]
   })],

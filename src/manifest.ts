@@ -33,7 +33,7 @@ const manifest = defineManifest(async () => ({
   devtools_page: "src/pages/devtools/index.html",
   web_accessible_resources: [
     {
-      resources: ["assets/js/*.js", "assets/css/*.css", "assets/img/*", "src/cv.worker.js", 'src/pyodide/**'],
+      resources: ["assets/js/*.js", "assets/css/*.css", "assets/img/*", "src/pyodide.worker.js", 'src/pyodide/**'],
       matches: ["*://*/*"],
     },
   ],

@@ -1,9 +1,6 @@
-import cv from '@src/cv';
 import "@webcomponents/custom-elements";
 import { children, createEffect, createSignal, onCleanup } from "solid-js";
-import  {render} from "solid-js/web";
 import { customElement } from "solid-element";
-import FrameManager from '@src/frame-manager';
 import JSZip from "jszip";
 
 const TITLE_BAR_HEIGHT = 40;
@@ -216,11 +213,19 @@ const style = `
   .cfg-close-btn:hover {
     color: #fff;
   }
+
+  .dim-label {
+    position: absolute;
+    bottom: 2px;
+    padding: 0 5px;
+    background: #333;
+    color: #fff;
+  }
 `;
 
 function Resizer(props) {
   const c = children(() => props.children);
-  const { frameRef, onResize } = props;
+  const { frameRef, onResize, onResizeEnd } = props;
   const [mousePosition, setMousePosition] = createSignal({ x: 0, y: 0 });
   const [dir, setDir] = createSignal('');
   const [startWidth, setStartWidth] = createSignal(0);
@@ -259,6 +264,7 @@ function Resizer(props) {
 
   function stopResize() {
     setResizing(false);
+    onResizeEnd();
   }
 
   c().forEach(el => {
@@ -274,6 +280,7 @@ const zip = new JSZip();
 customElement("my-counter", {}, () => {
   let frame;
   let overlay;
+  let dimLabel;
   let n;
   let s;
   let e;
@@ -285,9 +292,9 @@ customElement("my-counter", {}, () => {
   const [isRecording, setIsRecording] = createSignal(false);
   const [isStarting, setIsStarting] = createSignal(false);
   const [showConfig, toggleConfig] = createSignal(false);
+  const [isResizing, setIsResizing] = createSignal(false);
   const [interval, setFrameInterval] = createSignal(DEFAULT_FRAME_INTERVAL);
-  const [dimension, setDimension] = createSignal({width: 400, height: 400});
-  const [outputDimension, setOutputDimension] = createSignal({width: 400, height: 400});
+  const [dimension, setDimension] = createSignal({width: 400, height: 400, _set: false});
   const [time, setTime] = createSignal('00:00');
   const [countDown, setCountDown] = createSignal(3);
 
@@ -349,21 +356,10 @@ customElement("my-counter", {}, () => {
     return`${formattedMinutes}:${formattedSeconds}`;
   }
 
-  function dataURLToDataView(dataURL) {
-    // const base64String = dataURL.split(',')[1];
-    // const binaryString = atob(base64String);
-    // const uint8Array = new Uint8Array(binaryString.length);
-  
-    // for (let i = 0; i < binaryString.length; i++) {
-    //   uint8Array[i] = binaryString.charCodeAt(i);
-    // }
-  
-    // return Array.from(uint8Array);
-    const binaryImage = atob(dataURL.split(',')[1]); // Convert base64 to binary
-    const imageBlob = new Blob([new Uint8Array([...binaryImage].map(char => char.charCodeAt(0)))]);
-  }
-
   function startCapture() {
+    setTime('00:00');
+    setCountDown(3);
+
     async function captureElementScreenshots() {
       // Request screen capture permission
       const width = screen.width * (window.devicePixelRatio || 1)
@@ -382,7 +378,6 @@ customElement("my-counter", {}, () => {
         });
       }, 1000);
       await delay(3000);
-      debugger;
       clearInterval(i);
       setIsStarting(false);
 
@@ -405,7 +400,6 @@ customElement("my-counter", {}, () => {
     
       let screenshots = [];
       let times = [];
-      // const rect = document.documentElement.getBoundingClientRect();
       let r = frame.getBoundingClientRect();
       r = {
         top: Math.round(r.top + r.height + 1), 
@@ -415,10 +409,7 @@ customElement("my-counter", {}, () => {
         height: s.offsetTop - r.height - 1
       }
 
-      console.log('r:', r);
-
       const canvas = document.createElement('canvas');
-
       // const scaleFactor = Math.max(rect.width / window.innerWidth, rect.height / window.innerHeight);
 
       // canvas.width = rect.width * scaleFactor;
@@ -429,7 +420,6 @@ customElement("my-counter", {}, () => {
 
       const context = canvas.getContext('2d');
 
-      console.log('d:', r)
       let isStarted = false;
 
       const cancelTimer = intervalTimer(() => {
@@ -451,11 +441,8 @@ customElement("my-counter", {}, () => {
         // screenshots.push(canvas.toDataURL('image/png'));
         // screenshots.push();
         canvas.toBlob((blob) => {
-          // screenshots.push(blob)
           zip.file(`${t}.png`, blob);
         })
-        // Add the screenshot to the array
-        // screenshots.push(dataURL);
       }, interval);
 
       stopCapture = async function() {
@@ -464,19 +451,7 @@ customElement("my-counter", {}, () => {
         cancelTimer();
         stream.getTracks().forEach(track => track.stop());
         console.log('screenshots:', screenshots);
-        // chrome.storage.local.set({screenshots});
-        // debugger;
-        // screenshots.forEach((s, i) => {
-        // 	createImageDownloadLink(s, `${times[i]}.png`);
-        // });
-        // console.log('xy:', r.top, r.left);
-        // screenshots = screenshots.map(async (url) => {
-        //   return await cropImage(url, r.left, r.top, r.width, r.height);
-        // });
-        // screenshots = await Promise.all(screenshots)
-        // console.log(screenshots);
-        // console.log(await Promise.all(screenshots));
-        processScreenshots(screenshots, times);
+        processScreenshots();
         screenshots = [];
         times = [];
       }
@@ -489,12 +464,9 @@ customElement("my-counter", {}, () => {
         stopCapture();
       });
       
-      async function processScreenshots(screenshots, times) {
+      async function processScreenshots() {
 
         zip.generateAsync({type:"blob"}).then(async function(content) {
-          // see FileSaver.js
-          // saveAs(content, "example.zip");
-          console.log('content:', content);
           // let link = document.createElement('a')
           // link.rel = 'noopener'
           // link.href = URL.createObjectURL(content) // DOES NOT WORK
@@ -519,137 +491,20 @@ customElement("my-counter", {}, () => {
             await writableStream.close();
 
             const messageToBgScript = {
-              type: 'process_screenshots'
+              type: 'process_screenshots',
+              payload: {dimension: dimension()._set ? {...dimension()}: null}
             };
     
             chrome.runtime.sendMessage(messageToBgScript, (response) => {
               // Optional: Handle the response from the background script
               console.log('Response from background:', response);
             });
-
-            // Store the handle in IndexedDB
-            // const open = await indexedDB.open('handlesDB', 1);
-            // open.onupgradeneeded = function() {
-            //   var db = open.result;
-            //   var store = db.createObjectStore('handlesStore');
-            // }
-            // open.onsuccess = function() {
-            //   var db = open.result;
-            //   const transaction = db.transaction('handlesStore', 'readwrite');
-            //   const objectStore = transaction.objectStore('handlesStore');
-            //   objectStore.put(handle, 'savedZipHandle');
-            //   transaction.oncomplete = function() {
-            //     db.close();
-            //   };
-            // }
         
             console.log('File saved successfully using FileSavePicker.', handle);
           } catch (error) {
             console.error('An error occurred:', error);
           }
         });
-
-        // window.open(chrome.runtime.getURL('src/frame.html'), "Popup", "width=400,height=300")
-
-        // const dbName = 'imageDB';
-        // const dbVersion = 1;
-
-        // const request = indexedDB.open(dbName, dbVersion);
-
-        // request.onerror = event => {
-        //   console.error('Error opening database:', event.target.error);
-        // };
-
-        // request.onupgradeneeded = event => {
-        //   const db = event.target.result;
-
-        //   // Create an object store for images
-        //   db.createObjectStore('images', { keyPath: 'id', autoIncrement: true });
-        // };
-
-        // request.onsuccess = event => {
-        //   const db = event.target.result;
-        
-        //   const transaction = db.transaction('images', 'readwrite');
-        //   const store = transaction.objectStore('images');
-        //   screenshots.forEach((b, index) => {
-        //     store.put({ id: index, image: b });
-        //   });
-        //   transaction.oncomplete = () => {
-        //     console.log('Images stored successfully.');
-        //   };
-        
-        //   transaction.onerror = event => {
-        //     console.error('Error storing images:', event.target.error);
-        //   };
-        // }
-
-
-
-        // const batchSize = 200;
-
-        // for (let i = 0; i < screenshots.length; i += batchSize) {
-        //   const s = screenshots.slice(i, i + batchSize);
-        //   const t = times.slice(i, i + batchSize);
-
-        //   console.log('s:', s);
-        //   // Now `batch` contains up to 10 items to process together
-        
-        //   // Your processing logic for the batch goes here
-        //   // For example, you can loop through the batch and do something with each item
-        //   // const messageToBgScript = {
-        //   //   type: 'process_screenshots',
-        //   //   data:  {screenshots: s, times: t, end: (i + batchSize >= screenshots.length), dimensions: outputDimension()}
-        //   // };
-  
-        //   // chrome.runtime.sendMessage(messageToBgScript, (response) => {
-        //   //   // Optional: Handle the response from the background script
-        //   //   console.log('Response from background:', response);
-        //   // });
-
-        //   // chrome.storage.local.set({screenshots: s});
-        // }
-
-        // const messageToBgScript = {
-        //   type: 'process_screenshots',
-        //   data:  {screenshots, times, dimensions: outputDimension()}
-        // };
-
-        // chrome.runtime.sendMessage(messageToBgScript, (response) => {
-        //   // Optional: Handle the response from the background script
-        //   console.log('Response from background:', response);
-        // });
-
-        // let newtab = window.open('chrome-extension://hlldadkmohenombjfpfinmpnlppldogf/src/frame-list.html')
-        // newtab.postMessage("hello world");
-        // let FrameManager = FrameManager(screenshots, times);
-        // const root = document.createElement("div");
-        // root.style = "position: fixed; top: 0; left: 0; width: 100%; z-index: 21474836478; background: #fff; overflow: scroll; height: 100vh"
-        // root.id = "frame-root";
-        // document.body.append(root);
-
-        // render(() => {
-        //   let d = dimension();
-        //   return <FrameManager screenshots={screenshots} times={times} dimension={outputDimension() ? d: null}/>
-        // }, root)
-        // debugger;
-        // console.log(frames);
-        // document.body.appendChild(frames);
-
-        // chrome.tabs.create({url: 'frame-list.html' }, (tab) => {
-        //   chrome.tabs.sendMessage(tab.id, { data: {screenshots, times, dimension: outputDimension()} });
-        // });
-        
-        // Example: Log the screenshots array
-        // console.log(screenshots, times);
-        // await cv.load();
-        // cv.processImages({screenshots, times}, (imagedata, timeline) => {
-        //   const url = URL.createObjectURL(imagedata);
-        //   var im = new Image();
-        //   im.src = url;
-        //   document.body.appendChild(im);
-        //   set_animation(url, timeline, 'betamax-canvas', 'anim_fallback');
-        // });
       }
     }
 
@@ -661,10 +516,6 @@ customElement("my-counter", {}, () => {
       console.log('isStarting():', isStarting());
       overlay.style.height = parseInt(w.style.height) - TITLE_BAR_HEIGHT + 'px';
     }
-  })
-
-  createEffect(() => {
-    setOutputDimension(dimension());
   })
 
   return (
@@ -717,16 +568,16 @@ customElement("my-counter", {}, () => {
           <div class="row output-row">
               <span>Output Dimensions (px): </span>
               <span class="input-wrapper">
-                <input type="text" value={outputDimension().width} onchange={(e) => {
+                <input type="text" value={dimension().width} onchange={(e) => {
                    let {value} = e.target;
                    let v = parseInt(value);
-                   !Number.isNaN(v) && v > 0 && setOutputDimension({width: v, height: outputDimension().height});
+                   !Number.isNaN(v) && v > 0 && setDimension({width: v, height: dimension().height, _set: true});
                 }}/>
                 <span class="x">X</span>
-                <input type="text" value={outputDimension().height} onchange={(e) => {
+                <input type="text" value={dimension().height} onchange={(e) => {
                   let {value} = e.target;
                   let v = parseInt(value);
-                  !Number.isNaN(v) && v > 0 && setOutputDimension({width: outputDimension().width, height: v});
+                  !Number.isNaN(v) && v > 0 && setDimension({width: dimension().width, height: v, _set: true});
                 }}/>
               </span>
           </div>
@@ -736,25 +587,30 @@ customElement("my-counter", {}, () => {
         </div> : null}
         <div class="mirror" data-disabled={isRecording()}>
           <Resizer disabled={isRecording()} frameRef={frame} onResize={(dir, width, deltaX, deltaY) => {
-             if (dir === 'e') {
-              setDimension({width: width + deltaX, height: dimension().height});
+            setIsResizing(true);
+            if (dir === 'e') {
+              const w = width + deltaX;
+              if (w < 200) return;
+              setDimension({width: w, height: dimension().height, _set: false});
             }
             else if (dir === 's' || dir === 'se') {
               const h = dimension().height + deltaY;
-               if (h < 45) return;
+               if (h < 45 || width + deltaX < 200) return;
               s.style.bottom = `${Math.min(parseInt(getComputedStyle(s).bottom) - deltaY, -55)}px`;
               se.style.bottom = `${Math.min(parseInt(getComputedStyle(se).bottom) - deltaY, -40)}px`;
-              setDimension({width: dir === 'se' ? width + deltaX: dimension().width, height: h});
+              setDimension({width: dir === 'se' ? width + deltaX: dimension().width, height: h, _set: false});
             }
             else if (dir === 'n') {
               const h = dimension().height - deltaY;
               if (h < 45) return;
               console.log('h', h, parseInt(getComputedStyle(frame).top) + deltaY, deltaY)
               frame.style.top = `${parseInt(getComputedStyle(frame).top) + deltaY}px`;
-              setDimension({width: dimension().width, height: h});
+              setDimension({width: dimension().width, height: h, _set: false});
               s.style.bottom = `${parseInt(getComputedStyle(s).bottom) + deltaY}px`;
               se.style.bottom = `${parseInt(getComputedStyle(se).bottom) + deltaY}px`;
             }
+          }} onResizeEnd={() => {
+            setIsResizing(false);
           }}>
             <div class="n" ref={n}>
               <div></div>
@@ -768,7 +624,9 @@ customElement("my-counter", {}, () => {
             <div class="s" ref={s}>
               <div></div>
             </div>
-            <div class="se" ref={se}></div>
+            <div class="se" ref={se}>
+              {isResizing() ? <div ref={dimLabel} class="dim-label" style={{right: `${(dimension().width - dimLabel.getBoundingClientRect().width) - 5}px`}}>{dimension().width}x{dimension().height}</div>: null}
+            </div>
           </Resizer>
         </div>
       </div>
@@ -809,7 +667,6 @@ function intervalTimer(callback, interval) {
 chrome.runtime.onMessage.addListener(async (req, sender, res) => {
   if (req.message === 'init') {
     console.log('init');
-    await cv.load();
   }
   else if (req.message === 'cv_loaded') {
     console.log('cv loaded');

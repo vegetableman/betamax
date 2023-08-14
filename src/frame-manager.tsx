@@ -1,37 +1,8 @@
-import { For, Show, createSignal, onMount } from "solid-js";
-// import  {render} from "solid-js/web";
+import { For, Show, createSignal } from "solid-js";
+import  {render} from "solid-js/web";
 import { TransitionGroup } from "solid-transition-group";
-import cv from "./cv";
+import pyodide from "./pyodide";
 import JSZip from "jszip";
-
-
-// chrome.runtime.onMessage.addListener(async (req, sender, res) => {
-//   const { screenshots, times, dimensions } = req.data;
-//   console.log(screenshots, times);
-//   // screenshots.forEach((s) => {
-//   //   console.log('s:', s);
-//   // })
-//   const root = document.createElement("div");
-//   root.id = "frame-root";
-//   document.body.append(root);
-
-//   render(() => {
-//     return <FrameManager screenshots={screenshots} times={times} dimension={dimensions}/>
-//   }, root)
-// });
-
-// window.addEventListener(
-//   "message",
-//   (event) => {
-//     // Do we trust the sender of this message?  (might be
-//     // different from what we originally opened, for example).
-//     console.log('event:', event);
-//     // event.source is popup
-//     // event.data is "hi there yourself!  the secret response is: rheeeeet!"
-//   },
-//   false,
-// );
-
 
 window.chrome = {
   runtime: {
@@ -41,11 +12,7 @@ window.chrome = {
   }
 }
 
-window.onload = async () => {
-  console.log('load')
-  await cv.load();
-}
-
+let IS_PYODIDE_LOADED = false;
 const delay_scale = 0.9
 let timer = null
 
@@ -82,10 +49,10 @@ function animate(img, timeline, canvas)
   f();
 }
 
-const FrameManager = (props) => {
+const App = () => {
   let canvas: HTMLCanvasElement;
-  let {screenshots, times, dimension} = props;
-  let [ss, setScreenshots] = createSignal(screenshots.map((src, id) => ({src, id})));
+  let [ss, setScreenshots] = createSignal([]);
+  let [times, setTimes] = createSignal([]);
   let [msg, setMessage] = createSignal("");
   let [elapsedTime, setElapsedTime] = createSignal(null);
   let [isDownload, showDownload] = createSignal(false);
@@ -214,10 +181,10 @@ const FrameManager = (props) => {
     return num.toString().match(/^-?\d+(?:\.\d{0,2})?/)[0];
   }
   const generateAnimation = async () => {
-    setMessage("Loading pyodide");
-    await cv.load();
-    setMessage("Loading images");
-    cv.processImages({screenshots: ss().map((s) => s.src), times, format: format(), dimension}, (done, payload) => {
+    if (!IS_PYODIDE_LOADED) {
+      await pyodide.load();
+    }
+    pyodide.processImages({screenshots: ss().map((s) => s.src), times: times(), format: format(), dimension: null}, (done, payload) => {
       if (done) {
         const {image, timeline} = payload;
         const url = URL.createObjectURL(image);
@@ -242,9 +209,6 @@ const FrameManager = (props) => {
       }
     });
   }
-  onMount(() => {
-    cv.load()
-  })
   const downloadResult = () => {
 
   }
@@ -269,10 +233,29 @@ const FrameManager = (props) => {
       <div class="right-col">
         <div class="gen-container">
           <div>
-            <input type="checkbox" name="compress"/>
-            <label for="compress">Enable Compression</label>
-          </div>
-          <div>
+              <input type="file" id="fileInput" onchange={async (event) => {
+                const zipFileInput = event.target;
+                if (zipFileInput.files.length > 0) {
+                  const selectedZipFile = zipFileInput.files[0];
+                  const zip = new JSZip();
+                  const zipData = await zip.loadAsync(selectedZipFile);
+                  const fileNames = Object.keys(zipData.files);
+
+                  fileNames.sort((a, b) => {
+                    const aNum = parseInt(a.split(".")[0]);
+                    const bNum = parseInt(b.split(".")[0]);
+                    return aNum - bNum;
+                  });
+
+                  for (const fileName of fileNames) {
+                    const fileEntry = zipData.files[fileName];
+                    const b64 = await fileEntry.async("base64");
+                    const t = fileEntry.name.split('.png')[0];
+                    setScreenshots([...ss(), {src: `data:image/png;base64,${b64}`, id: t}]);
+                    setTimes([...times(), parseInt(t)]);
+                  }
+                }
+            }}/>
             <select onchange={(e) => {
               const { value } = e.target;
               value && setFormat(value);
@@ -304,4 +287,16 @@ const FrameManager = (props) => {
     </div>
   )
 }
-export default FrameManager;
+
+window.onload = async () => {
+  const root = document.createElement("div");
+  root.id = "frame-root";
+  document.body.append(root);
+
+  render(() => {
+    return <App/>
+  }, root);
+
+  await pyodide.load();
+  IS_PYODIDE_LOADED = true;
+}

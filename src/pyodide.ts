@@ -1,4 +1,4 @@
-class CV {
+class Pyodide {
 
   worker: Worker;
   _status: any;
@@ -41,7 +41,7 @@ class CV {
       if (this.loaded) {
         return resolve(true);
       }
-      const crUrl = chrome.runtime.getURL('src/cv.worker.js');
+      const crUrl = chrome.runtime.getURL('src/pyodide.worker.js');
       fetch(crUrl)
         .then(response => response.text())
         .then(workerCode => {
@@ -69,20 +69,8 @@ class CV {
               chrome.runtime.getURL('src/pyodide/packages/scipy-1.10.1-cp311-cp311-emscripten_3_1_39_wasm32.whl')
             ]
           }})
-          console.log('load---')
-        // Rest of your code...
       });
     })
-//     const workerUrl = chrome.runtime.getURL('assets/cv.worker.js');
-//     const workerBlobUrl = `data:text/javascript;base64,${btoa(`
-//   importScripts('${workerUrl}');
-// `)}`;
-//     this.worker = new Worker(workerBlobUrl) // load worker
-
-//     // Capture events and save [status, event] inside the _status object
-//     this.worker.onmessage = (e) => (this._status[e.data.msg] = ['done', e])
-//     this.worker.onerror = (e) => (this._status[e.data.msg] = ['error', e])
-//     return this._dispatch({ msg: 'load' })
   }
 
   processImages(payload, cb) {
@@ -98,4 +86,4 @@ class CV {
 }
 
 // Export the same instant everywhere
-export default new CV()
+export default new Pyodide()

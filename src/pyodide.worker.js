@@ -145,7 +145,7 @@ async function processImages(data) {
       if im.shape[2] == 4:
         im = im[:,:,:3]
       images.append(im)
-      times.append(times_[i])
+      times.append(int(times_[i]))
       i = i + 1
       
     t0 = time() - t0
@@ -209,7 +209,7 @@ async function processImages(data) {
     print(f"Packing the differences: {t2}")
 
     t3 = time()
-    print(f"Writing the image: {t3}")
+    print(f"Writing the image")
 
     buffer = io.BytesIO()
     iio.imwrite(buffer, packed, extension='.${format}')

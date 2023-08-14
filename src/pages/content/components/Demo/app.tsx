@@ -1,5 +1,4 @@
 import logo from "@src/assets/img/logo.svg";
-import cv from '@src/cv';
 import "@src/styles/index.css";
 import styles from "./App.module.css";
 
@@ -14,9 +13,6 @@ const App = () => {
     chrome.runtime.sendMessage({
       message: 'stop'
     }, (res) => {
-      console.log('cv:', cv);
-      console.log('res:', res)
-      cv.processImages(res);
     });
   }
 
