@@ -117,7 +117,7 @@ async function processImages(data) {
     times = []
     last_url = ''
     i = 0
-    print(f"Reading Images")
+    print(f"Reading Images...")
 
     for u in urls:
       if u == last_url:
@@ -149,11 +149,11 @@ async function processImages(data) {
       i = i + 1
       
     t0 = time() - t0
-    print(f"Reading Images: {t0}")
+    print(f"Finished in {round(t0, 2)}s")
 
     t1 = time()
 
-    print(f"Diffing Images")
+    print(f"Diffing Images...")
 
     zero = images[0] - images[0]
     pairs = zip([zero] + images[:-1], images)
@@ -164,15 +164,12 @@ async function processImages(data) {
     img_areas = [simplify(x, SIMPLIFICATION_TOLERANCE) for x in img_areas]
 
     t1 = time() - t1
-    print(f"Diffing Images: {t1}")
+    print(f"Finished in {round(t1, 2)}s")
     
     ih, iw, _ = shape(images[0])
 
     allocator = Allocator2D(MAX_PACKED_HEIGHT, iw)
     packed = zeros((MAX_PACKED_HEIGHT, iw, 3), dtype=uint8)
-
-    t2 = time()
-    print(f"Packing the differences")
 
     rects_by_size = []
     for i in range(len(images)):
@@ -185,7 +182,16 @@ async function processImages(data) {
 
     allocs = [[None] * len(src_rects) for src_rects in img_areas]
 
+    total_rects = len(rects_by_size)
+
+    print(f"Found {total_rects} differing regions.")
+
+    t2 = time()
+    print(f"Packing those differences...")
+
+    rc = 1;
     for size,i,j in rects_by_size:
+      print(f"{rc}/{total_rects}")
       src = images[i]
       src_rects = img_areas[i]
 
@@ -202,25 +208,26 @@ async function processImages(data) {
         allocs[i][j] = (dy, dx)
 
       packed[dy:dy+h, dx:dx+w] = src[sy:sy+h, sx:sx+w]
+      rc = rc + 1
 
     packed = packed[0:allocator.num_used_rows]
 
     t2 = time() - t2
-    print(f"Packing the differences: {t2}")
+    print(f"Finished in {round(t2, 2)}s")
 
     t3 = time()
-    print(f"Writing the image")
+    print(f"Writing the image...")
 
     buffer = io.BytesIO()
     iio.imwrite(buffer, packed, extension='.${format}')
     
     t3 = time() - t3
-    print(f"Writing the image: {t3}")
+    print(f"Finished in {round(t3, 2)}s")
 
     buffer.seek(0)
     buffer_content = buffer.getvalue()
 
-    print(f"Creating the timeline")
+    print(f"Creating the timeline...")
     delays = (array(times[1:] + [times[-1] + END_FRAME_PAUSE]) - array(times)).tolist()
     
     timeline = []
@@ -238,6 +245,9 @@ async function processImages(data) {
         blitlist.append([dx, dy, w, h, sx, sy])
 
       timeline.append({'delay': delays[i], 'blit': blitlist})
+    
+    t = time() - t
+    print(f"Total time: {round(t, 2)}s")
   `)
 
   const buffer = pyodide.globals.get('buffer_content').toJs();

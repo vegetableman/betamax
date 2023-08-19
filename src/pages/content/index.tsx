@@ -20,19 +20,20 @@ const style = `
     background: #333;
   }
   .record-btn, .stop-btn {
-    background: #fd6900;
+    background: #f46236;
+    border-color: #ef5527;
     display: flex;
     align-items: center;
     padding: 0 10px;
     color: #fff;
-    padding: 5px 7px;
+    padding: 3px 7px 5px 7px;
   }
   .stop-btn {
     background: red;
   }
   .record-btn:hover {
     cursor: pointer;
-    background: #e56104;
+    background: #f15120;
   }
   .stop-btn:hover {
     cursor: pointer;
@@ -299,6 +300,9 @@ customElement("my-counter", {}, () => {
   const [countDown, setCountDown] = createSignal(3);
 
   const handleMouseDown = (event) => {
+    if (event.target.classList.contains('record-btn')) {
+      return;
+    }
     const { clientX, clientY } = event;
     setMousePosition({x: clientX, y: clientY});
     const rect = frame.getBoundingClientRect()
@@ -362,12 +366,11 @@ customElement("my-counter", {}, () => {
 
     async function captureElementScreenshots() {
       // Request screen capture permission
-      const width = screen.width * (window.devicePixelRatio || 1)
-		  const height = screen.height * (window.devicePixelRatio || 1)
       const stream = await navigator.mediaDevices.getDisplayMedia({
         audio: false,
-        video: true,
-        preferCurrentTab: true
+        video: {
+          displaySurface: 'monitor'
+        },
       });
 
       setIsStarting(true);
@@ -402,7 +405,7 @@ customElement("my-counter", {}, () => {
       let times = [];
       let r = frame.getBoundingClientRect();
       r = {
-        top: Math.round(r.top + r.height + 1), 
+        top: Math.round(r.top + (screen.height - window.innerHeight)), 
         bottom: r.bottom, 
         width: r.width, 
         left: Math.round(r.left), 

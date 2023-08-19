@@ -15,7 +15,7 @@
         "dev:nodemon": "nodemon",
         "build:noemit": "tsc --noEmit && vite build",
         "test": "jest",
-        "predev": "vite build --config vite-frame.config.ts"
+        "compile": "vite build -w --config vite-frame.config.ts"
     },
     "type": "module",
     "dependencies": {

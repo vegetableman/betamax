@@ -1,16 +1,27 @@
-import { For, Show, createSignal } from "solid-js";
-import  {render} from "solid-js/web";
-import { TransitionGroup } from "solid-transition-group";
+import 'virtual:windi.css'
+import { For, createSignal } from "solid-js";
+import  {Portal, render} from "solid-js/web";
 import pyodide from "./pyodide";
 import JSZip from "jszip";
 
+const {hostname} = new URL(window.location.href);
 window.chrome = {
+  // @ts-ignore
   runtime: {
     getURL: (path) => {
-      return `chrome-extension://hlldadkmohenombjfpfinmpnlppldogf/${path}`
+      return `chrome-extension://${hostname}/${path}`
     }
   }
-}
+};
+
+const logo = `
+██████╗ ███████╗████████╗ █████╗ ███╗   ███╗ █████╗ ██╗  ██╗
+██╔══██╗██╔════╝╚══██╔══╝██╔══██╗████╗ ████║██╔══██╗╚██╗██╔╝
+██████╔╝█████╗     ██║   ███████║██╔████╔██║███████║ ╚███╔╝ 
+██╔══██╗██╔══╝     ██║   ██╔══██║██║╚██╔╝██║██╔══██║ ██╔██╗ 
+██████╔╝███████╗   ██║   ██║  ██║██║ ╚═╝ ██║██║  ██║██╔╝ ██╗
+╚═════╝ ╚══════╝   ╚═╝   ╚═╝  ╚═╝╚═╝     ╚═╝╚═╝  ╚═╝╚═╝  ╚═╝
+`;
 
 let IS_PYODIDE_LOADED = false;
 const delay_scale = 0.9
@@ -28,7 +39,6 @@ function animate(img, timeline, canvas)
     let frame = i++ % timeline.length;
     let delay = timeline[frame].delay * delay_scale;
     let blits = timeline[frame].blit;
-
     let ctx = canvas.getContext('2d');
     for (let j = 0; j < blits.length; ++j)
     {
@@ -41,7 +51,6 @@ function animate(img, timeline, canvas)
       let dy = blit[5];
       ctx.drawImage(img, sx, sy, w, h, dx, dy, w, h);
     }
-
     timer = window.setTimeout(f, delay);
   }
 
@@ -50,213 +59,148 @@ function animate(img, timeline, canvas)
 }
 
 const App = () => {
-  let canvas: HTMLCanvasElement;
-  let [ss, setScreenshots] = createSignal([]);
-  let [times, setTimes] = createSignal([]);
-  let [msg, setMessage] = createSignal("");
-  let [elapsedTime, setElapsedTime] = createSignal(null);
-  let [isDownload, showDownload] = createSignal(false);
-  let [format, setFormat] = createSignal('png');
-  function setAnimation(url, timeline)
-  {
-    var img = new Image();
-    img.onload = function()
-    {
-      const blits = timeline[0].blit[0];
-      canvas.width = blits[2];
-      canvas.height = blits[3];
-      animate(img, timeline, canvas);
-    };
-    img.src = url;
-  }
-  const style = `
-      .list {
-        flex: 1;
-        display: flex;
-        align-items: center;
-        flex-direction: column;
-      }
-      .item {
-        display: flex;
-        min-width: 400px;
-        padding: 10px 0;
-      }
-      .gen-btn {
-        padding: 10px 20px;
-        background: steelblue;
-        color: #fff;
-        border: 0;
-        border-radius: 3px;
-      }
-      .close-btn {
-        cursor: pointer;
-        padding-left: 10px;
-      }
-      .right-col {
-        flex: 0 0 20%;
-      }
-      .container {
-        display: flex;
-      }
-      .list-item {
-        transition: all 0.5s;
-        display: inline-block;
-        margin-right: 10px;
-      }
-      .list-item-enter,
-      .list-item-exit-to {
-        opacity: 0;
-        transform: translateY(30px);
-        transition: all;
-      }
-      .list-item-exit-active {
-        position: absolute;
-        display: none;
-      }
-      .item {
-        transition: transform ease-in 0.4s;
-      }
-      .gen-container {
-        position: sticky;
-        top: 10px;
-      }
-      .canvas-overlay {
-        display: flex;
-        position: absolute;
-        justify-content: center;
-        align-items: center;
-        background: #2626268f;
-        width: 100%;
-        height: 100vh;
-      }
-      .canvas-container {
-        position: relative;
-        background: #fff;
-        padding: 10px;
-      }
-      .download-container {
-        text-align: right;
-      }
-      .download-btn {
-        background: steelblue;
-        color: #fff;
-        padding: 10px;
-        margin: 10px 0 0 0;
-      }
-      .close-overlay-btn {
-        position: absolute;
-        right: -7px;
-        top: -10px;
-        font-size: 11px;
-      }
-      .message::after {
-        content: ".";
-        opacity: 0;
-        animation: animateDots 1s infinite;
-      }
-      @keyframes animateDots {
-        0% {
-          opacity: 0;
-        }
-        50% {
-          opacity: 1;
-          content: "..";
-        }
-        100% {
-          opacity: 1;
-          content: "...";
-        }
-      }
-  `;
-  const deleteScreenshot = (id) => () => {
-    setScreenshots((ss) => {
-      let ssx = [...ss];
-      ssx = ssx.filter((s) => {
-        return id !== s.id;
-      });
-      return ssx;
-    });
-  }
-  function calc(num) {
-    return num.toString().match(/^-?\d+(?:\.\d{0,2})?/)[0];
-  }
+  let fileInput;
+  let logScroller;
+  let canvas;
+  const [ss, setScreenshots] = createSignal([]);
+  const [times, setTimes] = createSignal([]);
+  const [format, setFormat] = createSignal('png');
+  const [fileName, setFileName] = createSignal('No file choosen');
+  const [currentImage, setCurrentImage] = createSignal(0);
+  const [messages, setMessages] = createSignal([]);
+  const [generating, setIsGenerating] = createSignal(false);
+  const [isOutput, showOutput] = createSignal(false);
+  const [isExpanded, toggleExpansion] = createSignal(false);
+
   const generateAnimation = async () => {
+    if (generating()) return;
+
+    setIsGenerating(true);
+    setMessages([]);
+    setMessages([...messages(), "Loading Pyodide..."]);
     if (!IS_PYODIDE_LOADED) {
       await pyodide.load();
     }
-    pyodide.processImages({screenshots: ss().map((s) => s.src), times: times(), format: format(), dimension: null}, (done, payload) => {
+    setMessages([...messages(), "Pyodide is loaded."]);
+    setMessages([...messages(), "Sending images to worker..."]);
+    pyodide.processImages({
+      screenshots: ss().map((s) => s.src), times: times(), format: format(), dimension: null}, (done, payload) => {
       if (done) {
+        setIsGenerating(false);
         const {image, timeline} = payload;
         const url = URL.createObjectURL(image);
+        showOutput(true);
         var im = new Image();
+        im.onload = function()
+        {
+          const blits = timeline[0].blit[0];
+          canvas.width = blits[2];
+          canvas.height = blits[3];
+          animate(im, timeline, canvas);
+        };
         im.src = url;
-        document.body.appendChild(im);
-        showDownload(true);
-        setAnimation(url, timeline);
       } else {
-        console.log('process:', payload);
         const {message} = payload;
-        if (message.includes(':')) {
-          const time = message.split(':')[1];
-          setMessage(message.split(':')[0]);
-          const f = parseFloat(time);
-          const t = f < 1 ? `${calc(f * 1000)}ms` : `${calc(f)}s`;
-          setElapsedTime(t);
-        } else {
-          setMessage(message);
-          setElapsedTime(null);
-        }
+        setMessages([...messages(), message]);
+        requestAnimationFrame(() => {
+          logScroller.scrollTop = logScroller.scrollHeight;
+        });
       }
     });
   }
-  const downloadResult = () => {
 
-  }
-  return (
-    <div class="container">
-      <style>{style}</style>
-        <ul class="list">
-          <TransitionGroup name="list-item">
-            <For each={ss()}>{({src, id}) =>
-              <li class="item" key={id}>
-                <div>
-                  <span>{times[id]}</span>
+  const nextImage = () => {
+    setCurrentImage((prev) => (prev + 1) % ss().length);
+  };
+
+  const prevImage = () => {
+    setCurrentImage((prev) => (prev - 1 + ss().length) % ss().length);
+  };
+
+  return <div onkeydown={(e) => {
+    if (e.key === 'ArrowRight') {
+      nextImage()
+    } else if (e.key === 'ArrowLeft') {
+      prevImage();
+    } else if (e.shiftKey && e.key === 'Delete') {
+      setScreenshots((ss) => {
+        let ss_ = [...ss];
+        ss_.splice(currentImage(), 1);
+        return ss_;
+      });
+      setTimes((t) => {
+        let t_ = [...t];
+        t_.splice(currentImage(), 1);
+        return t_; 
+      })
+    }
+  }}>
+    <div class="flex h-full">
+      <pre class="absolute left-[25px] top-[25px] text-[mediumpurple] text-[3px] leading-[unset]">{logo}</pre>
+      <div class="flex-1 bg-zinc-800 h-full">
+        {ss().length ?
+          <div class="relative h-full">
+            <div class="absolute"></div>
+            <div class="absolute right-4 top-3 text-gray-400 text-sm"><b>Shift + Delete</b> to delete image</div>
+            <button style={{display: currentImage() === 0 ? 'none': 'inline'}} class="absolute top-[45%] transform -translate-y-[50%] cursor-pointer left-0 text-gray-300 p-4 text-5xl z-10 hover:text-white" onClick={prevImage}>◂</button>
+            <button style={{display: currentImage() === ss().length - 1 ? 'none': 'inline'}}  class="absolute top-[45%] transform -translate-y-[50%] cursor-pointer right-0 text-gray-300 p-4 text-5xl z-10 hover:text-white" onClick={nextImage}>▸</button>
+            <div class="relative h-full w-full overflow-hidden text-center">
+              <For each={ss()}>{({src, id}, i) =>
+                <div tabIndex="-1" style={{
+                  '--tw-translate-x': `${i() < currentImage() ? -1 * (currentImage() - i()) * 100: i() > currentImage() ? (i() - currentImage()) * 100 : 0}%`,
+                  'position': currentImage() !== i() ? 'absolute': 'relative'
+                }} class={`absolute outline-none left-0 top-0 h-full w-full flex items-center justify-center transform translate-x-[0%] transition-transform duration-250 ease-in-out delay-0`}>
+                  <img src={src} alt={`Image ${currentImage() + 1}`} />
+                  <div class="absolute text-xl left-[48%] bottom-5 text-gray-400">
+                    {i() + 1} of {ss().length}
+                  </div>
+                  <div class="absolute text-xl right-4 bottom-5 text-gray-400">
+                    {id}.png
+                  </div>
                 </div>
-                <div>
-                  <img src={src}/>
-                  <div class="close-btn" onclick={deleteScreenshot(id)}>❌</div>
-                </div>
-              </li>
-            }</For>
-          </TransitionGroup>
-        </ul>
-      <div class="right-col">
-        <div class="gen-container">
-          <div>
-              <input type="file" id="fileInput" onchange={async (event) => {
-                const zipFileInput = event.target;
-                if (zipFileInput.files.length > 0) {
-                  const selectedZipFile = zipFileInput.files[0];
-                  const zip = new JSZip();
-                  const zipData = await zip.loadAsync(selectedZipFile);
-                  const fileNames = Object.keys(zipData.files);
+              }</For>
+            </div>
+          </div> : null}
+      </div>
+      <div class="flex basis-96 bg-[#eee]">
+        <div class="flex flex-col w-full">
+          <div class="flex flex-col flex-1 items-center w-full py-[20px] border-b border-[#ccc]">
+            <input type="file" accept=".zip" ref={fileInput} style="display:none;" onchange={async (event) => {
+              const zipFileInput = event.target;
+              if (zipFileInput.files.length > 0) {
+                const selectedZipFile = zipFileInput.files[0];
+                setFileName(selectedZipFile.name);
+                const zip = new JSZip();
+                const zipData = await zip.loadAsync(selectedZipFile);
+                const fileNames = Object.keys(zipData.files);
 
-                  fileNames.sort((a, b) => {
-                    const aNum = parseInt(a.split(".")[0]);
-                    const bNum = parseInt(b.split(".")[0]);
-                    return aNum - bNum;
-                  });
+                fileNames.sort((a, b) => {
+                  const aNum = parseInt(a.split(".")[0]);
+                  const bNum = parseInt(b.split(".")[0]);
+                  return aNum - bNum;
+                });
 
-                  for (const fileName of fileNames) {
-                    const fileEntry = zipData.files[fileName];
-                    const b64 = await fileEntry.async("base64");
-                    const t = fileEntry.name.split('.png')[0];
-                    setScreenshots([...ss(), {src: `data:image/png;base64,${b64}`, id: t}]);
-                    setTimes([...times(), parseInt(t)]);
-                  }
+                for (const fileName of fileNames) {
+                  const fileEntry = zipData.files[fileName];
+                  const b64 = await fileEntry.async("base64");
+                  const t = fileEntry.name.split('.png')[0];
+                  setScreenshots([...ss(), {src: `data:image/png;base64,${b64}`, id: t}]);
+                  setTimes([...times(), parseInt(t)]);
                 }
+              }
             }}/>
-            <select onchange={(e) => {
+            <div class="flex items-center">
+              <button class="py-[10px] px-3 my-[10px] text-sm border-outset text-white bg-[#0349ff] hover:bg-[#0944dd] border-[#0f328f] border-2" onclick={() => {
+                fileInput.click();
+              }}>
+                <span class="relative pr-2 top-[-2px]">📁</span>
+                <span>Select zip</span>
+              </button>
+              <div class="flex items-center px-1 w-fit max-w-[200px] h-[43px] border border-[#333] text-[#666] text-sm border-l-0">
+                {fileName()}
+              </div>
+            </div>
+            <select class="p-[10px] border-2 border-solid border-[#333] my-[10px] text-xs" onchange={(e) => {
               const { value } = e.target;
               value && setFormat(value);
             }}>
@@ -264,28 +208,53 @@ const App = () => {
               <option value="png" selected>PNG</option>
               <option value="webp">WEBP</option>
             </select>
+            <button style={{cursor: generating()? 'default': 'pointer'}} disabled={!ss()?.length} class="relative py-[10px] px-2 my-[10px] w-40 h-10 border-[#ef5527] bg-[#f46236] text-white text-sm border-outset border-2 disabled:opacity-70 disabled:cursor-default hover:not-disabled:bg-[#fb3a00]" onclick={generateAnimation}>
+              <div class="absolute left-4 top-2 z-20">Generate animation</div>
+              {generating() ? 
+              <div class="absolute left-0 top-0 w-full h-full bg-progress-pattern transition-all duration-300 ease animate-progress z-10"></div>: null}
+            </button>
           </div>
-          <button class="gen-btn" onclick={generateAnimation}>Generate</button>
-          {msg() ? <div class="message">{msg()}</div>: null}
-          <div>{elapsedTime() ? `Finished in: ${elapsedTime()}`: null}</div>
+          {generating() || messages().length ? <ul ref={logScroller} class="px-5 basis-[400px] py-3 bg-[#ddd] overflow-auto">
+            <For each={messages()}>{(m) =>
+              <li class="text-sm leading-6"> {'>'} {m()}</li>
+            }</For>
+          </ul>: null}
+          {isOutput() ? <Portal>
+            <div onkeydown={(e) => {
+                if (e.key === 'Escape') {
+                showOutput(false);
+              }
+            }} class="absolute flex items-center justify-center top-0 left-0 w-full h-full bg-zinc-800 z-20">
+              <pre class="absolute left-[25px] top-[25px] text-[mediumpurple] text-[3px] leading-[unset]">{logo}</pre>
+              <span class="absolute text-[20px] top-0 right-[7px] text-white cursor-pointer" onclick={() => {
+                showOutput(false);
+              }}>✖</span>
+              <canvas ref={canvas}/>
+              <div class="absolute w-96 right-3 bottom-0 rounded-t-lg shadow-tw bg-white z-[1999999] overflow-hidden">
+                <div class="h-[38px] rounded-t-lg bg-[white] transition-all delay-0 duration-200" classList={{'h-[500px]': isExpanded() === true}}>
+                  <div class="flex justify-between py-[10px] px-[15px] cursor-pointer border-b border-gray-200" onClick={() => {
+                    toggleExpansion(!isExpanded());
+                  }}>
+                    <div class="flex items-center">
+                      <span class="text-[17px] ml-[6px]" style="color: var(--p-color-text)">Download</span>
+                    </div>
+                  </div>
+                  <div>
+                    <ul>
+                      <li></li>
+                    </ul>
+                    <button class="py-[10px] px-5 mr-4 my-[10px] border-[#fd6900] bg-[#fb6800] text-white text-sm border-outset border-2 disabled:opacity-70 disabled:cursor-default hover:bg-[#fb3a00]" onclick={generateAnimation}>
+                      <span>Download</span>
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </Portal>: null}
         </div>
       </div>
-      <Show
-        when={isDownload()}>
-        <div class="canvas-overlay">
-          <dialog class="canvas-container" open>
-            <canvas id="betamax-canvas" ref={canvas}/>
-            <div class="download-container">
-              <button class="download-btn" onclick={downloadResult}>Download</button>
-            </div>
-            <div class="close-overlay-btn" onclick={() => {
-              showDownload(false);
-            }}>❌</div>
-          </dialog>
-        </div>
-      </Show>
     </div>
-  )
+  </div>
 }
 
 window.onload = async () => {
