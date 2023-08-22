@@ -1,8 +1,9 @@
 import 'virtual:windi.css'
-import { For, createSignal } from "solid-js";
+import { For, createEffect, createSignal } from "solid-js";
 import  {Portal, render} from "solid-js/web";
 import pyodide from "./pyodide";
 import JSZip from "jszip";
+import DEMO_HTML from './demo.js';
 
 const {hostname} = new URL(window.location.href);
 window.chrome = {
@@ -62,6 +63,7 @@ const App = () => {
   let fileInput;
   let logScroller;
   let canvas;
+  let timelineInput;
   const [ss, setScreenshots] = createSignal([]);
   const [times, setTimes] = createSignal([]);
   const [format, setFormat] = createSignal('png');
@@ -71,6 +73,8 @@ const App = () => {
   const [generating, setIsGenerating] = createSignal(false);
   const [isOutput, showOutput] = createSignal(false);
   const [isExpanded, toggleExpansion] = createSignal(false);
+  const [packedImage, setPackedImage] = createSignal(null);
+  const [timeline, setTimeline] = createSignal(null);
 
   const generateAnimation = async () => {
     if (generating()) return;
@@ -82,21 +86,23 @@ const App = () => {
       await pyodide.load();
     }
     setMessages([...messages(), "Pyodide is loaded."]);
-    setMessages([...messages(), "Sending images to worker..."]);
+    setMessages([...messages(), "Sending images to the worker..."]);
     pyodide.processImages({
-      screenshots: ss().map((s) => s.src), times: times(), format: format(), dimension: null}, (done, payload) => {
+      screenshots: ss().map((s) => s.src), times: times(), format: format(), dimension: null}, async (done, payload) => {
       if (done) {
         setIsGenerating(false);
-        const {image, timeline} = payload;
-        const url = URL.createObjectURL(image);
+        const {image, timeline: tt} = payload;
+        const url =  URL.createObjectURL(image);
+        setPackedImage(image);
+        setTimeline(JSON.stringify(tt));
         showOutput(true);
         var im = new Image();
         im.onload = function()
         {
-          const blits = timeline[0].blit[0];
+          const blits = tt[0].blit[0];
           canvas.width = blits[2];
           canvas.height = blits[3];
-          animate(im, timeline, canvas);
+          animate(im, tt, canvas);
         };
         im.src = url;
       } else {
@@ -116,6 +122,23 @@ const App = () => {
   const prevImage = () => {
     setCurrentImage((prev) => (prev - 1 + ss().length) % ss().length);
   };
+
+  const downloadZip = async () => {
+    const zip = new JSZip();
+    zip.file('timeline.js', `timeline=${timeline()}`);
+    zip.file('packed_image.png', packedImage());
+    zip.file('demo.html', DEMO_HTML);
+    const blob = await zip.generateAsync({type: 'blob'});
+    window.parent.postMessage({extension: 'zip', blob}, "*");
+  }
+
+  createEffect(() => {
+    if (isOutput()) {
+      setTimeout(() => {
+        toggleExpansion(true);
+      }, 500);
+    }
+  });
 
   return <div onkeydown={(e) => {
     if (e.key === 'ArrowRight') {
@@ -141,7 +164,11 @@ const App = () => {
         {ss().length ?
           <div class="relative h-full">
             <div class="absolute"></div>
-            <div class="absolute right-4 top-3 text-gray-400 text-sm"><b>Shift + Delete</b> to delete image</div>
+            <div class="absolute left-5 bottom-6 opacity-60 hover:opacity-100 z-10">
+              <div class="text-lg">⌨</div>
+              <div class="text-sm text-gray-400 pb-[2px]"><b>Shift + Delete</b> to delete image</div>
+              <div class="text-sm text-gray-400"><b>Shift + Left Arrow/Right Arrow</b> to quickly switch between images</div>
+            </div>
             <button style={{display: currentImage() === 0 ? 'none': 'inline'}} class="absolute top-[45%] transform -translate-y-[50%] cursor-pointer left-0 text-gray-300 p-4 text-5xl z-10 hover:text-white" onClick={prevImage}>◂</button>
             <button style={{display: currentImage() === ss().length - 1 ? 'none': 'inline'}}  class="absolute top-[45%] transform -translate-y-[50%] cursor-pointer right-0 text-gray-300 p-4 text-5xl z-10 hover:text-white" onClick={nextImage}>▸</button>
             <div class="relative h-full w-full overflow-hidden text-center">
@@ -226,25 +253,46 @@ const App = () => {
               }
             }} class="absolute flex items-center justify-center top-0 left-0 w-full h-full bg-zinc-800 z-20">
               <pre class="absolute left-[25px] top-[25px] text-[mediumpurple] text-[3px] leading-[unset]">{logo}</pre>
-              <span class="absolute text-[20px] top-0 right-[7px] text-white cursor-pointer" onclick={() => {
+              <span class="absolute text-[20px] top-[16px] right-[20px] text-gray-400 cursor-pointer hover:text-white" onclick={() => {
                 showOutput(false);
-              }}>✖</span>
+              }}>
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-x"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+              </span>
               <canvas ref={canvas}/>
-              <div class="absolute w-96 right-3 bottom-0 rounded-t-lg shadow-tw bg-white z-[1999999] overflow-hidden">
-                <div class="h-[38px] rounded-t-lg bg-[white] transition-all delay-0 duration-200" classList={{'h-[500px]': isExpanded() === true}}>
-                  <div class="flex justify-between py-[10px] px-[15px] cursor-pointer border-b border-gray-200" onClick={() => {
+              <div class="absolute w-96 right-3 bottom-0 shadow-tw bg-white z-[1999999] overflow-hidden">
+                <div class="rounded-t-lg bg-[white] transition-all delay-0 duration-200" classList={{'h-[500px]': isExpanded(), 'h-[44px]': !isExpanded()}}>
+                  <div class="flex justify-between py-[10px] px-[15px] cursor-pointer border-b border-gray-200 bg-slate-500" onClick={() => {
                     toggleExpansion(!isExpanded());
                   }}>
-                    <div class="flex items-center">
-                      <span class="text-[17px] ml-[6px]" style="color: var(--p-color-text)">Download</span>
+                    <div class="flex items-center text-white">
+                      <svg xmlns="http://www.w3.org/2000/svg" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-download"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+                      <span class="text-base pl-2" style="color: var(--p-color-text)">Download</span>
                     </div>
                   </div>
-                  <div>
-                    <ul>
-                      <li></li>
+                  <div class="text-center">
+                    <p class="text-sm p-3">Below are the generated files, you can download them individually or as zip below:</p>
+                    <ul class="flex flex-col items-center">
+                      <li>
+                        <img src={URL.createObjectURL(packedImage())} class="object-cover w-24 h-24" onclick={() => {
+                          window.parent.postMessage({extension: 'png', blob: packedImage()}, "*");
+                        }}/>
+                      </li>
+                      <li class="my-5">
+                        <div class="flex items-center">
+                          <input type="text" class="bg-[#eee] text-sm p-1 rounded-sm border-[#ddd] border-[1]" ref={timelineInput} value={timeline()}/>
+                          <button class="pl-1" onclick={async () => {
+                            try {
+                                await navigator.clipboard.writeText(timelineInput.value);
+                                console.log('Text copied to clipboard');
+                            } catch (error) {
+                                console.error('Failed to copy: ', error);
+                            }
+                          }}><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-clipboard"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"></path><rect x="8" y="2" width="8" height="4" rx="1" ry="1"></rect></svg></button>
+                        </div>
+                      </li>
                     </ul>
-                    <button class="py-[10px] px-5 mr-4 my-[10px] border-[#fd6900] bg-[#fb6800] text-white text-sm border-outset border-2 disabled:opacity-70 disabled:cursor-default hover:bg-[#fb3a00]" onclick={generateAnimation}>
-                      <span>Download</span>
+                    <button class="py-[10px] px-5 mr-4 border-[#fd6900] bg-[#fb6800] text-white text-sm border-outset border-2 disabled:opacity-70 disabled:cursor-default hover:bg-[#fb3a00]" onclick={downloadZip}>
+                      <span>Download demo</span>
                     </button>
                   </div>
                 </div>

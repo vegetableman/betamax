@@ -32,6 +32,10 @@ export default defineConfig({
     {
       src: root + '/frame-runtime.js',
       dest: outDir + '/src'
+    },
+    {
+      src: root + '/demo.js',
+      dest: outDir + '/src'
     }
   ]
   })],

@@ -468,45 +468,21 @@ customElement("my-counter", {}, () => {
       });
       
       async function processScreenshots() {
-
-        zip.generateAsync({type:"blob"}).then(async function(content) {
-          // let link = document.createElement('a')
-          // link.rel = 'noopener'
-          // link.href = URL.createObjectURL(content) // DOES NOT WORK
-          // link.download = 'images.zip'
-          // setTimeout(function () { URL.revokeObjectURL(link.href) }, 4E4) // 40s
-          // setTimeout(function () { link.click() }, 0)
-          try {
-            const handle = await window.showSaveFilePicker({
-              suggestedName: "images.zip",
-              types: [
-                {
-                  description: 'ZIP Files',
-                  accept: {
-                    'application/zip': ['.zip'],
-                  },
-                },
-              ],
-            });
-        
-            const writableStream = await handle.createWritable();
-            await writableStream.write(content);
-            await writableStream.close();
-
-            const messageToBgScript = {
-              type: 'process_screenshots',
-              payload: {dimension: dimension()._set ? {...dimension()}: null}
-            };
-    
-            chrome.runtime.sendMessage(messageToBgScript, (response) => {
-              // Optional: Handle the response from the background script
-              console.log('Response from background:', response);
-            });
-        
-            console.log('File saved successfully using FileSavePicker.', handle);
-          } catch (error) {
-            console.error('An error occurred:', error);
-          }
+        zip.generateAsync({type: 'blob'}).then(async function(content) {
+          let link = document.createElement('a')
+          link.rel = 'noopener'
+          link.href = URL.createObjectURL(content) // DOES NOT WORK
+          link.download = `${document.title.toLowerCase() || 'images'}_${Date.now()}.zip`
+          setTimeout(function () { URL.revokeObjectURL(link.href) }, 4E4) // 40s
+          setTimeout(function () { link.click() }, 0)
+          const messageToBgScript = {
+            type: 'process_screenshots',
+            payload: {dimension: dimension()._set ? {...dimension()}: null}
+          };
+          chrome.runtime.sendMessage(messageToBgScript, (response) => {
+            // Optional: Handle the response from the background script
+            console.log('Response from background:', response);
+          });
         });
       }
     }
