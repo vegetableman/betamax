@@ -23,10 +23,10 @@ chrome.action.onClicked.addListener(function(tab) {
 
 chrome.runtime.onMessage.addListener(async (req, sender, res) => {
   if (req.type === 'process_screenshots') {
-    const { dimension } = req.payload;
+    const { dimension, fileName } = req.payload;
     chrome.tabs.create({url: 'src/frame.html'}, (tab) => {
       setTimeout(() => {
-        chrome.tabs.sendMessage(tab.id, { payload: dimension });
+        chrome.tabs.sendMessage(tab.id, { payload: dimension, fileName });
       }, 1000);
     });
     res(true)

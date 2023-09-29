@@ -1,147 +1,138 @@
 import "@webcomponents/custom-elements";
-import { children, createEffect, createSignal, onCleanup } from "solid-js";
+import { children, createEffect, createSignal, onCleanup, onMount } from "solid-js";
 import { customElement } from "solid-element";
+import { parse } from 'tldts';
 import JSZip from "jszip";
 
 const TITLE_BAR_HEIGHT = 40;
+const MIRROR_FRAME_HEIGHT = 15;
 
 const style = `
-  .frame {
+  .btm_frame {
+    --btm-title-background-color: #333;
+    --btm-record-btn-background-color: #f46236;
+    --btm-record-btn-hover-background-color: #f15120;
+    --btm-record-btn-border-color: #ef5527;
+    --btm-stop-btn-background-color: red;
+    --btm-stop-btn-hover-background-color: #c90808;
+    --btm-btn-color: #fff;
+    --btm-mirror-background-color: #333;
+    --btm-dimension-background-color: #333;
+    --btm-countdown-background-color: #33333352;
+    --btm-config-background-color: #333333e3;
+  }
+  .btm_frame__inner {
     display: flex;
     flex-direction: column;
     position: relative;
     width: 100%;
   }
-  .title-bar {
+  .btm_title_bar {
     display: flex;
     align-items: center;
     justify-content: space-between;
     flex: 0 0 ${TITLE_BAR_HEIGHT}px;
-    background: #333;
+    background: var(--btm-title-background-color);
   }
-  .record-btn, .stop-btn {
-    background: #f46236;
-    border-color: #ef5527;
+  .btm_record-btn, .btm_stop-btn {
     display: flex;
     align-items: center;
-    padding: 0 10px;
-    color: #fff;
     padding: 3px 7px 5px 7px;
+    background: var(--btm-record-btn-background-color);
+    border-color: var(--btm-record-btn-border-color);
+    color: var(--btm-btn-color);
   }
-  .stop-btn {
-    background: red;
-  }
-  .record-btn:hover {
+  .btm_record-btn:hover {
+    background: var(--btm-record-btn-hover-background-color);
     cursor: pointer;
-    background: #f15120;
   }
-  .stop-btn:hover {
+  .btm_stop-btn {
+    background: var(--btm-stop-btn-background-color);
+  }
+  .btm_stop-btn:hover {
+    background: var(--btm-stop-btn-hover-background-color);
     cursor: pointer;
-    background: #c90808;
   }
-  .record-btn > .icon, .stop-btn > .icon {
-    padding-right: 5px;
-    font-size: 10px;
+  .btm_record-btn > .btm_icon, .btm_stop-btn > .btm_icon {
     position: relative;
     top: -1px;
+    padding-right: 5px;
+    font-size: 10px;
   }
-  .mirror > .w {
-    width: 15px;
-    height: 440px;
+  .btm_mirror > .btm_w {
     position: absolute;
     left: -15px;
     top: 0;
-  }
-  .mirror > .w > div {
-    float: right;
-    background: #333;
-    height: 100%;
-    width: 5px;
-  }
-  .mirror > .e {
     width: 15px;
     height: 440px;
+    cursor: w-resize;
+  }
+  .btm_mirror > .btm_w > div {
+    float: right;
+    height: 100%;
+    width: 5px;
+    background: var(--btm-mirror-background-color);
+  }
+  .btm_mirror > .btm_e {
     position: absolute;
     right: -15px;
     top: 0;
+    width: ${MIRROR_FRAME_HEIGHT}px;
+    height: 440px;
     cursor: e-resize;
   }
-  .mirror > .e > div {
+  .btm_mirror > .btm_e > div {
     float: left;
-    background: #333;
     width: 5px;
     height: 100%;
+    background: var(--btm-mirror-background-color);
   }
-  .mirror > .s {
-    height: 15px;
-    width: 100%;
-    bottom: -410px;
+  .btm_mirror > .btm_s {
     position: absolute;
+    bottom: -410px;
+    height: ${MIRROR_FRAME_HEIGHT}px;
+    width: 100%;
     cursor: s-resize;
   }
-  .mirror > .s > div {
-    background: #333;
+  .btm_mirror > .btm_s > div {
+    background: var(--btm-mirror-background-color);
     height: 5px;
   }
-  .mirror > .n {
-    width: 100%;
-    background: #333;
+  .btm_mirror > .btm_n {
     position: absolute;
     top: 0;
-    cursor: n-resize;
+    width: 100%;
     height: 5px;
+    background: var(--btm-mirror-background-color);
+    cursor: n-resize;
   }
-  .mirror[data-disabled=true] > * {
+  .btm_mirror[data-disabled=true] > * {
     cursor: default !important;
   }
-  .se {
+  .btm_mirror > .btm_se {
     position: absolute;
     right: 0;
     bottom: calc(-355px - ${TITLE_BAR_HEIGHT}px);
-    width: 15px;
+    width: ${MIRROR_FRAME_HEIGHT}px;
+    height: ${MIRROR_FRAME_HEIGHT}px;
     cursor: se-resize;
-    height: 15px;
   }
-  .sw {
-    position: absolute;
-    left: 0;
-    bottom: -365px;
-    width: 15px;
-    cursor: sw-resize;
-    height: 15px;
-  }
-  .nw {
-    position: absolute;
-    left: 0;
-    width: 10px;
-    cursor: nw-resize;
-    height: 10px;
-    top: 0;
-  }
-  .ne {
-    position: absolute;
-    right: 0;
-    width: 10px;
-    cursor: ne-resize;
-    height: 10px;
-    top: 0;
-  }
-  .timer {
-    color: #fff;
+  .btm_title__timer {
     position: absolute;
     left: 45%;
+    color: var(--btm-btn-color);
   }
-  .starting {
-    color: #fff;
+  .btm_title__text {
     position: absolute;
     left: 45%;
+    color: var(--btm-btn-color);
   }
-  .starting::after {
+  .btm_title__text::after {
     content: ".";
     opacity: 0;
-    animation: animateDots 1s infinite;
+    animation: animate_dots 1s infinite;
   }
-  @keyframes animateDots {
+  @keyframes animate_dots {
     0% {
       opacity: 0;
     }
@@ -154,73 +145,64 @@ const style = `
       content: "...";
     }
   }
-  .countdown-overlay {
-    width: 100%;
-    height: 355px;
-    position: absolute;
-    top: ${TITLE_BAR_HEIGHT}px;
-    background: #33333352;
-    color: #fff;
-    text-align: center;
+  .btm_countdown {
     display: flex;
     flex-direction: column;
     justify-content: center;
+    position: absolute;
+    top: ${TITLE_BAR_HEIGHT}px;
+    width: 100%;
+    height: 355px;
+    text-align: center;
+    background: var(--btm-countdown-background-color);
+    color: var(--btm-btn-color);
     font-size: 50px;
   }
-  .close-btn, .btn {
+  .btm_countdown > span {
+    position: relative;
+    top: -30px;
+  }
+  .btm_title__close-btn, .btm_title__config-btn {
     background: none;
-    color: #fff;
+    color: var(--btm-btn-color);
     cursor: pointer;
   }
-  .config {
+  .btm_config {
     position: absolute;
     top: ${TITLE_BAR_HEIGHT}px;
     width: 100%;
     height: 400px;
     overflow: auto;
-    background: #333333e3;
-    color: #fff;
+    background: var(--btm-config-background-color);
+    color: var(--btm-btn-color);
   }
-  .config > .row {
+  .btm_config__row {
     display: flex;
     justify-content: flex-start;
-    padding: 15px 5px;
+    padding: 15px 10px 5px 10px;
   }
-
-  .config input {
-    width: 55px;
+  .btm_config__row__wrapper > input {
+    width: 100px;
   }
-
-  .config .input-wrapper {
-    margin-left: 15px;
+  .btm_config__row__label {
+    flex-basis: 230px;
   }
-
-  .config .input-wrapper .x {
-    padding: 0 10px;
-  }
-
-  .config .output-row input {
-    width: 70px;
-  }
-
-  .cfg-close-btn {
+  .btm_config__close-btn {
     position: absolute;
     top: 0;
     right: 7px;
     color: silver;
     cursor: pointer;
   }
-
-  .cfg-close-btn:hover {
-    color: #fff;
+  .btm_config__close-btn:hover {
+    color: var(--btm-btn-color);
   }
-
-  .dim-label {
+  .btm_dimension {
     position: absolute;
     bottom: 2px;
     padding: 0 5px;
-    background: #333;
-    color: #fff;
+    background: var(--btm-dimension-background-color);
+    color: var(--btm-btn-color);
   }
 `;
 
@@ -230,6 +212,7 @@ function Resizer(props) {
   const [mousePosition, setMousePosition] = createSignal({ x: 0, y: 0 });
   const [dir, setDir] = createSignal('');
   const [startWidth, setStartWidth] = createSignal(0);
+  const [startLeft, setStartLeft] = createSignal(0);
   const [resizing, setResizing] = createSignal(false);
 
   function initResize(e) {
@@ -238,8 +221,9 @@ function Resizer(props) {
     setMousePosition({x: e.clientX, y: e.clientY});
     
     setStartWidth(frameRef.offsetWidth);
+    setStartLeft(frameRef.getBoundingClientRect().left);
     setResizing(true);
-    setDir(e.currentTarget.className);
+    setDir(e.currentTarget.dataset.dir);
     document.addEventListener('mousemove', resize);
     document.addEventListener('mouseup', stopResize);
   }
@@ -250,8 +234,8 @@ function Resizer(props) {
     const { clientX, clientY } = e;
     const deltaX = clientX - x;
     const deltaY = clientY - y;
-    if (dir() === 'e') {
-      onResize(dir(), startWidth(), deltaX, deltaY);
+    if (dir() === 'e' || dir() === 'w') {
+      onResize(dir(), startWidth(), deltaX, deltaY, startLeft());
     }
     else if (dir() === 's' || dir() === 'n') {
       onResize(dir(), startWidth(), deltaX, deltaY);
@@ -276,9 +260,11 @@ function Resizer(props) {
 }
 
 const DEFAULT_FRAME_INTERVAL = 16;
+const MIN_WIDTH = 200;
+const MIN_HEIGHT = 45;
 const zip = new JSZip();
 
-customElement("my-counter", {}, () => {
+customElement("btm-frame", {}, () => {
   let frame;
   let overlay;
   let dimLabel;
@@ -288,13 +274,14 @@ customElement("my-counter", {}, () => {
   let w;
   let se;
   const [mousePosition, setMousePosition] = createSignal({ x: 0, y: 0 });
-  const [elementOffset, setElementOffset] = createSignal({ x: window.innerWidth/2 - 200, y: window.innerHeight/2 - 200 });
+  const [elementOffset, setElementOffset] = createSignal({ x: window.innerWidth/2 - MIN_WIDTH, y: window.innerHeight/2 - MIN_WIDTH });
   const [isMouseDown, setMouseDown] = createSignal(false);
   const [isRecording, setIsRecording] = createSignal(false);
   const [isStarting, setIsStarting] = createSignal(false);
   const [showConfig, toggleConfig] = createSignal(false);
   const [isResizing, setIsResizing] = createSignal(false);
   const [interval, setFrameInterval] = createSignal(DEFAULT_FRAME_INTERVAL);
+  const [selectedEl, setSelectedEl] = createSignal("");
   const [dimension, setDimension] = createSignal({width: 400, height: 400, _set: false});
   const [time, setTime] = createSignal('00:00');
   const [countDown, setCountDown] = createSignal(3);
@@ -376,7 +363,6 @@ customElement("my-counter", {}, () => {
       setIsStarting(true);
       const i = setInterval(() => {
         setCountDown((c) => {
-          console.log('c:', c);
           return Math.max(c - 1, 1);
         });
       }, 1000);
@@ -401,7 +387,6 @@ customElement("my-counter", {}, () => {
         videoElement.onloadedmetadata = resolve;
       });
     
-      let screenshots = [];
       let times = [];
       let r = frame.getBoundingClientRect();
       r = {
@@ -413,11 +398,6 @@ customElement("my-counter", {}, () => {
       }
 
       const canvas = document.createElement('canvas');
-      // const scaleFactor = Math.max(rect.width / window.innerWidth, rect.height / window.innerHeight);
-
-      // canvas.width = rect.width * scaleFactor;
-      // canvas.height = rect.height * scaleFactor;
-
       canvas.width = r.width;
       canvas.height = r.height;
 
@@ -432,30 +412,19 @@ customElement("my-counter", {}, () => {
           isStarted = true;
           setTime(updateTimer());
         }
-        // rect.left, rect.top + (rect.bottom - rect.top) + 1, rect.width, rect.height, 0, 0, rect.width, rect.height
-        // Draw the current video frame onto the canvas, capturing only the element's portion
-        // context.drawImage(videoElement, r.left, r.top, r.width, r.height, 0, 0, canvas.width, canvas.height);
-        // context.drawImage(videoElement, rect.left, rect.top);
         context.drawImage(videoElement, -r.left, -r.top);
-        // context.drawImage(videoElement, rect.left, rect.top, rect.width, rect.height, 0, 0, rect.width, rect.height);
-        // context.drawImage(videoElement, 0, 0, canvas.width, canvas.height);
-        // Convert the canvas image to a data URL
-        // const dataURL = await cropImage(canvas.toDataURL('image/png'), 0, 0, 400, 400);
-        // screenshots.push(canvas.toDataURL('image/png'));
-        // screenshots.push();
         canvas.toBlob((blob) => {
           zip.file(`${t}.png`, blob);
         })
-      }, interval);
+      }, interval());
 
       stopCapture = async function() {
         clearInterval(timerId);
         setIsRecording(false);
         cancelTimer();
+        totalSeconds = 0;
         stream.getTracks().forEach(track => track.stop());
-        console.log('screenshots:', screenshots);
         processScreenshots();
-        screenshots = [];
         times = [];
       }
 
@@ -471,13 +440,15 @@ customElement("my-counter", {}, () => {
         zip.generateAsync({type: 'blob'}).then(async function(content) {
           let link = document.createElement('a')
           link.rel = 'noopener'
-          link.href = URL.createObjectURL(content) // DOES NOT WORK
-          link.download = `${document.title.toLowerCase() || 'images'}_${Date.now()}.zip`
+          link.href = URL.createObjectURL(content);
+          let loc = parse(document.location.href);
+          let fileName = `${loc.domainWithoutSuffix || 'images'}_${Date.now()}.zip`;
+          link.download = fileName;
           setTimeout(function () { URL.revokeObjectURL(link.href) }, 4E4) // 40s
           setTimeout(function () { link.click() }, 0)
           const messageToBgScript = {
             type: 'process_screenshots',
-            payload: {dimension: dimension()._set ? {...dimension()}: null}
+            payload: {fileName, dimension: dimension()._set ? {...dimension()}: null}
           };
           chrome.runtime.sendMessage(messageToBgScript, (response) => {
             // Optional: Handle the response from the background script
@@ -492,96 +463,121 @@ customElement("my-counter", {}, () => {
 
   createEffect(() => {
     if (isStarting() && overlay) {
-      console.log('isStarting():', isStarting());
-      overlay.style.height = parseInt(w.style.height) - TITLE_BAR_HEIGHT + 'px';
+      overlay.style.height = parseInt(w.style.height) - TITLE_BAR_HEIGHT - 5 + 'px';
     }
   })
 
+  onMount(() => {
+    overlay.style.height = parseInt(w.style.height) - TITLE_BAR_HEIGHT - 5 + 'px';
+  })
+
+  const selectElement = (value) => {
+    setSelectedEl(value);
+    const el = document.querySelector(value);
+    const rect = el.getBoundingClientRect();
+    setElementOffset({
+      x: rect.left,
+      y: rect.top - TITLE_BAR_HEIGHT,
+    });
+    const delta = dimension().height - (rect.height + MIRROR_FRAME_HEIGHT);
+    setDimension({width: rect.width, height: rect.height + MIRROR_FRAME_HEIGHT, _set: false});
+    s.style.bottom = `${parseInt(getComputedStyle(s).bottom) + delta}px`;
+    se.style.bottom = `${parseInt(getComputedStyle(se).bottom) + delta}px`;
+    toggleConfig(false);
+  }
+
   return (
-    <div ref={frame}
+    <div
+      class="btm_frame" 
+      ref={frame}
       style={{
         position: 'fixed',
-        width: dimension().width + 'px',
-        "min-width": '200px',
         left: `${elementOffset().x}px`,
         top: `${elementOffset().y}px`,
-        "z-index": "2147483647"
+        width: dimension().width + 'px',
+        'min-width': `${MIN_WIDTH}px`,
+        'z-index': '2147483647'
       }}
     >
       <style>{style}</style>
-      <div class="frame">
-        <div class="title-bar"  onMouseDown={handleMouseDown}>
-          {!isRecording() ? <button class="record-btn" onClick={startCapture}>
-            <span class="icon">⬤</span>
+      <div class="btm_frame__inner">
+        <div class="btm_title_bar" onMouseDown={handleMouseDown}>
+          {!isRecording() ? <button class="btm_record-btn" onClick={startCapture}>
+            <span class="btm_icon">⬤</span>
             <span>Record</span>
           </button>: null}
-          {isRecording() ? <button class="stop-btn" onClick={() => {
+          {isRecording() ? <button class="btm_stop-btn" onClick={() => {
             document.dispatchEvent(stopEvent);
           }}>
-            <span class="icon">◼</span>
+            <span class="btm_icon">◼</span>
             <span>Stop</span>
           </button>: null}
-          {isRecording() ? <span class="timer">{time()}</span>: null}
-          {isStarting() ? <span class="starting">Starting</span>: null}
+          {isRecording() ? <span class="btm_title__timer">{time()}</span>: null}
+          {isStarting() ? <span class="btm_title__text">Starting</span>: null}
           <div>
-            <button class="btn" disabled={isRecording()} onclick={() => {
+            <button class="btm_title__config-btn" disabled={isRecording()} onclick={() => {
               toggleConfig((c) => !c);
             }}>⚙</button>
-            <button class="close-btn" disabled={isRecording()} onclick={() => {
-              document.querySelector('my-counter').remove();
+            <button class="btm_title__close-btn" disabled={isRecording()} onclick={() => {
+              document.querySelector('btm-frame').remove();
             }}>✖</button>
           </div>
         </div>
-        {isStarting() ? <div class="countdown-overlay" ref={overlay}>{countDown()}</div>: null}
-        {showConfig() ? <div class="config" style={{height: dimension().height + 'px'}}>
-          <div class="row">
-              <span>Frame Interval (ms): </span>
-              <span class="input-wrapper">
-                <input type="text" value={`${interval()}`} onchange={(e) => {
+        {isStarting() ? <div class="btm_countdown" ref={overlay}>
+          <span>{countDown()}</span>
+        </div>: null}
+        {showConfig() ? <div class="btm_config" style={{height: dimension().height + 'px'}}>
+          <div class="btm_config__row">
+              <span class="btm_config__row__label">Frame Interval (ms): </span>
+              <span class="btm_config__row__wrapper">
+                <input type="text" style="width: 50px;" value={`${interval()}`} onchange={(e) => {
                   let {value} = e.target;
                   let v = parseInt(value);
                   !Number.isNaN(v) && v > 0 && setFrameInterval(v);
                 }}/>
               </span>
           </div>
-          <div class="row output-row">
-              <span>Output Dimensions (px): </span>
-              <span class="input-wrapper">
-                <input type="text" value={dimension().width} onchange={(e) => {
-                   let {value} = e.target;
-                   let v = parseInt(value);
-                   !Number.isNaN(v) && v > 0 && setDimension({width: v, height: dimension().height, _set: true});
-                }}/>
-                <span class="x">X</span>
-                <input type="text" value={dimension().height} onchange={(e) => {
+          <div class="btm_config__row">
+              <span class="btm_config__row__label">Enter id or class or name of an element to record (and press <b style="font-weight: 600;">Enter</b>): </span>
+              <span class="btm_config__row__wrapper">
+                <input type="text" style="width: 140px;" value={`${selectedEl()}`} onblur={(e) => {
                   let {value} = e.target;
-                  let v = parseInt(value);
-                  !Number.isNaN(v) && v > 0 && setDimension({width: dimension().width, height: v, _set: true});
+                  selectElement(value);
+                }} placeholder="Starting with # or ." onkeyup={(e: KeyboardEvent) => {
+                  if (e.key === 'Enter') {
+                    'value' in e.target && selectElement(e.target.value);
+                  }
                 }}/>
               </span>
           </div>
-          <span class="cfg-close-btn" onclick={() => {
+          <span class="btm_config__close-btn" onclick={() => {
             toggleConfig((c) => !c);
           }}>✖</span>
         </div> : null}
-        <div class="mirror" data-disabled={isRecording()}>
-          <Resizer disabled={isRecording()} frameRef={frame} onResize={(dir, width, deltaX, deltaY) => {
+        <div class="btm_mirror" data-disabled={isRecording()}>
+          <Resizer disabled={isRecording()} frameRef={frame} onResize={(dir, width, deltaX, deltaY, startLeft) => {
             setIsResizing(true);
             if (dir === 'e') {
               const w = width + deltaX;
-              if (w < 200) return;
+              if (w < MIN_WIDTH) return;
+              setDimension({width: w, height: dimension().height, _set: false});
+            }
+            else if (dir === 'w') {
+              const w = width - deltaX;
+              if (w < MIN_WIDTH) return;
+              frame.style.left = `${startLeft + deltaX}px`;
               setDimension({width: w, height: dimension().height, _set: false});
             }
             else if (dir === 's' || dir === 'se') {
               const h = dimension().height + deltaY;
-               if (h < 45 || width + deltaX < 200) return;
+               if (h < MIN_HEIGHT || width + deltaX < MIN_WIDTH) return;
               s.style.bottom = `${Math.min(parseInt(getComputedStyle(s).bottom) - deltaY, -55)}px`;
               se.style.bottom = `${Math.min(parseInt(getComputedStyle(se).bottom) - deltaY, -40)}px`;
               setDimension({width: dir === 'se' ? width + deltaX: dimension().width, height: h, _set: false});
             }
             else if (dir === 'n') {
               const h = dimension().height - deltaY;
-              if (h < 45) return;
+              if (h < MIN_HEIGHT) return;
               console.log('h', h, parseInt(getComputedStyle(frame).top) + deltaY, deltaY)
               frame.style.top = `${parseInt(getComputedStyle(frame).top) + deltaY}px`;
               setDimension({width: dimension().width, height: h, _set: false});
@@ -591,20 +587,20 @@ customElement("my-counter", {}, () => {
           }} onResizeEnd={() => {
             setIsResizing(false);
           }}>
-            <div class="n" ref={n}>
+            <div class="btm_n" data-dir="n" ref={n}>
               <div></div>
             </div>
-            <div class="w" ref={w} style={{height: dimension().height + TITLE_BAR_HEIGHT + 'px'}}>
+            <div class="btm_w" data-dir="w" ref={w} style={{height: dimension().height + TITLE_BAR_HEIGHT + 'px'}}>
               <div></div>
             </div>
-            <div class="e" ref={e} style={{height: dimension().height + TITLE_BAR_HEIGHT + 'px'}}>
+            <div class="btm_e" data-dir="e" ref={e} style={{height: dimension().height + TITLE_BAR_HEIGHT + 'px'}}>
               <div></div>
             </div>
-            <div class="s" ref={s}>
+            <div class="btm_s" data-dir="s" ref={s}>
               <div></div>
             </div>
-            <div class="se" ref={se}>
-              {isResizing() ? <div ref={dimLabel} class="dim-label" style={{right: `${(dimension().width - dimLabel.getBoundingClientRect().width) - 5}px`}}>{dimension().width}x{dimension().height}</div>: null}
+            <div class="btm_se" data-dir="se" ref={se}>
+              {isResizing() ? <div ref={dimLabel} class="btm_dimension" style={{right: `${(dimension().width - dimLabel.getBoundingClientRect().width) - 5}px`}}>{dimension().width}x{dimension().height}</div>: null}
             </div>
           </Resizer>
         </div>
@@ -630,7 +626,6 @@ function intervalTimer(callback, interval) {
     const nowTime = Date.now();
     const nextTime = startTime + counter * interval;
     timeoutId = setTimeout(main, interval - (nowTime - nextTime));
-    console.log('deviation', nowTime - nextTime);
     counter += 1;
     callback();
   }
@@ -643,21 +638,12 @@ function intervalTimer(callback, interval) {
 }
 
 
-chrome.runtime.onMessage.addListener(async (req, sender, res) => {
-  if (req.message === 'init') {
-    console.log('init');
-  }
-  else if (req.message === 'cv_loaded') {
-    console.log('cv loaded');
-  }
-  else if (req.message === 'processingComplete') {
-    console.log('processingComplete');
-  }
-  else if (req.message === 'stopCapture') {
+chrome.runtime.onMessage.addListener(async (req) => {
+  if (req.message === 'stopCapture') {
     document.dispatchEvent(stopEvent);
   }
   else if (req.message === 'viewFrame') {
-    document.body.appendChild(document.createElement('my-counter'));
+    document.body.appendChild(document.createElement('btm-frame'));
   }
 });
 

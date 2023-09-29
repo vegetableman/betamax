@@ -1,5 +1,5 @@
-import 'virtual:windi.css'
-import { For, createEffect, createSignal } from "solid-js";
+import 'virtual:windi.css';
+import { For, createEffect, createSignal, onMount } from "solid-js";
 import  {Portal, render} from "solid-js/web";
 import pyodide from "./pyodide";
 import JSZip from "jszip";
@@ -64,13 +64,16 @@ const App = () => {
   let logScroller;
   let canvas;
   let timelineInput;
+  let gallery;
   const [ss, setScreenshots] = createSignal([]);
   const [times, setTimes] = createSignal([]);
   const [format, setFormat] = createSignal('png');
   const [fileName, setFileName] = createSignal('No file choosen');
+  const [exampleFileName, setExampleFileName] = createSignal(null);
   const [currentImage, setCurrentImage] = createSignal(0);
   const [messages, setMessages] = createSignal([]);
   const [generating, setIsGenerating] = createSignal(false);
+  const [transitionEnabled, toggleTransition] = createSignal(true);
   const [isOutput, showOutput] = createSignal(false);
   const [isExpanded, toggleExpansion] = createSignal(false);
   const [packedImage, setPackedImage] = createSignal(null);
@@ -132,6 +135,14 @@ const App = () => {
     window.parent.postMessage({extension: 'zip', blob}, "*");
   }
 
+  onMount(() => {
+    window.addEventListener('message', function(event) {
+      if ( event.data instanceof Object) {
+        setExampleFileName(event.data.fileName);
+      }
+    });
+  });
+
   createEffect(() => {
     if (isOutput()) {
       setTimeout(() => {
@@ -141,10 +152,31 @@ const App = () => {
   });
 
   return <div onkeydown={(e) => {
-    if (e.key === 'ArrowRight') {
-      nextImage()
-    } else if (e.key === 'ArrowLeft') {
+    console.log(e.shiftKey, e.key);
+    e.preventDefault();
+    // disable transition on shift
+    if (e.shiftKey && e.key === 'ArrowRight') {
+      toggleTransition(false);
+      nextImage();
+    } else if (e.shiftKey && e.key === 'ArrowLeft') {
+      toggleTransition(false);
       prevImage();
+    } else if (e.shiftKey && e.ctrlKey && e.key === 'Delete') {
+      setScreenshots((ss) => {
+        let ss_ = [...ss];
+        ss_.splice(currentImage());
+        return ss_;
+      });
+      setTimes((t) => {
+        let t_ = [...t];
+        t_.splice(currentImage());
+        return t_; 
+      });
+      toggleTransition(false);
+      prevImage();
+      setTimeout(() => {
+        gallery.focus();
+      }, 0);
     } else if (e.shiftKey && e.key === 'Delete') {
       setScreenshots((ss) => {
         let ss_ = [...ss];
@@ -155,19 +187,26 @@ const App = () => {
         let t_ = [...t];
         t_.splice(currentImage(), 1);
         return t_; 
-      })
-    }
+      });
+    } else if (e.key === 'ArrowRight') {
+      toggleTransition(true);
+      nextImage()
+    } else if (e.key === 'ArrowLeft') {
+      toggleTransition(true);
+      prevImage();
+    } 
   }}>
     <div class="flex h-full">
       <pre class="absolute left-[25px] top-[25px] text-[mediumpurple] text-[3px] leading-[unset]">{logo}</pre>
-      <div class="flex-1 bg-zinc-800 h-full">
+      <div class="flex-1 bg-zinc-800 h-full" ref={gallery}>
         {ss().length ?
           <div class="relative h-full">
             <div class="absolute"></div>
             <div class="absolute left-5 bottom-6 opacity-60 hover:opacity-100 z-10">
               <div class="text-lg">⌨</div>
-              <div class="text-sm text-gray-400 pb-[2px]"><b>Shift + Delete</b> to delete image</div>
-              <div class="text-sm text-gray-400"><b>Shift + Left Arrow/Right Arrow</b> to quickly switch between images</div>
+              <div class="text-sm text-gray-400 pb-[2px]"><b>Shift + Delete</b> to delete image. </div>
+              <div class="text-sm text-gray-400 pb-[2px]"><b>Ctrl + Shift + Delete</b> to delete images starting from this image.</div>
+              <div class="text-sm text-gray-400"><b>Shift + Left Arrow/Right Arrow</b> to switch between images without transition.</div>
             </div>
             <button style={{display: currentImage() === 0 ? 'none': 'inline'}} class="absolute top-[45%] transform -translate-y-[50%] cursor-pointer left-0 text-gray-300 p-4 text-5xl z-10 hover:text-white" onClick={prevImage}>◂</button>
             <button style={{display: currentImage() === ss().length - 1 ? 'none': 'inline'}}  class="absolute top-[45%] transform -translate-y-[50%] cursor-pointer right-0 text-gray-300 p-4 text-5xl z-10 hover:text-white" onClick={nextImage}>▸</button>
@@ -176,7 +215,7 @@ const App = () => {
                 <div tabIndex="-1" style={{
                   '--tw-translate-x': `${i() < currentImage() ? -1 * (currentImage() - i()) * 100: i() > currentImage() ? (i() - currentImage()) * 100 : 0}%`,
                   'position': currentImage() !== i() ? 'absolute': 'relative'
-                }} class={`absolute outline-none left-0 top-0 h-full w-full flex items-center justify-center transform translate-x-[0%] transition-transform duration-250 ease-in-out delay-0`}>
+                }} class={`absolute outline-none left-0 top-0 h-full w-full flex items-center justify-center transform translate-x-[0%] ${transitionEnabled() ? 'transition-transform duration-250 ease-in-out delay-0': ''}`}>
                   <img src={src} alt={`Image ${currentImage() + 1}`} />
                   <div class="absolute text-xl left-[48%] bottom-5 text-gray-400">
                     {i() + 1} of {ss().length}
@@ -192,32 +231,32 @@ const App = () => {
       <div class="flex basis-96 bg-[#eee]">
         <div class="flex flex-col w-full">
           <div class="flex flex-col flex-1 items-center w-full py-[20px] border-b border-[#ccc]">
-            <input type="file" accept=".zip" ref={fileInput} style="display:none;" onchange={async (event) => {
-              const zipFileInput = event.target;
-              if (zipFileInput.files.length > 0) {
-                const selectedZipFile = zipFileInput.files[0];
-                setFileName(selectedZipFile.name);
-                const zip = new JSZip();
-                const zipData = await zip.loadAsync(selectedZipFile);
-                const fileNames = Object.keys(zipData.files);
+            <div class="flex items-center w-full relative justify-center">
+              <input class="absolute select-none h-12 z-10 text-transparent cursor-pointer outline-none w-full peer" type="file" accept=".zip" ref={fileInput} onchange={async (event) => {
+                const zipFileInput = event.target;
+                if (zipFileInput.files.length > 0) {
+                  const selectedZipFile = zipFileInput.files[0];
+                  setFileName(selectedZipFile.name);
+                  const zip = new JSZip();
+                  const zipData = await zip.loadAsync(selectedZipFile);
+                  const fileNames = Object.keys(zipData.files);
 
-                fileNames.sort((a, b) => {
-                  const aNum = parseInt(a.split(".")[0]);
-                  const bNum = parseInt(b.split(".")[0]);
-                  return aNum - bNum;
-                });
+                  fileNames.sort((a, b) => {
+                    const aNum = parseInt(a.split(".")[0]);
+                    const bNum = parseInt(b.split(".")[0]);
+                    return aNum - bNum;
+                  });
 
-                for (const fileName of fileNames) {
-                  const fileEntry = zipData.files[fileName];
-                  const b64 = await fileEntry.async("base64");
-                  const t = fileEntry.name.split('.png')[0];
-                  setScreenshots([...ss(), {src: `data:image/png;base64,${b64}`, id: t}]);
-                  setTimes([...times(), parseInt(t)]);
+                  for (const fileName of fileNames) {
+                    const fileEntry = zipData.files[fileName];
+                    const b64 = await fileEntry.async("base64");
+                    const t = fileEntry.name.split('.png')[0];
+                    setScreenshots([...ss(), {src: `data:image/png;base64,${b64}`, id: t}]);
+                    setTimes([...times(), parseInt(t)]);
+                  }
                 }
-              }
-            }}/>
-            <div class="flex items-center">
-              <button class="py-[10px] px-3 my-[10px] text-sm border-outset text-white bg-[#0349ff] hover:bg-[#0944dd] border-[#0f328f] border-2" onclick={() => {
+              }}/>
+              <button class="py-[10px] px-3 my-[10px] text-sm border-outset text-white bg-[#0349ff] peer-hover:bg-[#0944dd] border-[#0f328f] border-2" onclick={() => {
                 fileInput.click();
               }}>
                 <span class="relative pr-2 top-[-2px]">📁</span>
@@ -227,6 +266,7 @@ const App = () => {
                 {fileName()}
               </div>
             </div>
+            {exampleFileName() && <div>Recently downloaded file name: <b style="font-weight: 600;">{exampleFileName()}</b></div>}
             <select class="p-[10px] border-2 border-solid border-[#333] my-[10px] text-xs" onchange={(e) => {
               const { value } = e.target;
               value && setFormat(value);
@@ -274,6 +314,7 @@ const App = () => {
                     <ul class="flex flex-col items-center">
                       <li>
                         <img src={URL.createObjectURL(packedImage())} class="object-cover w-24 h-24" onclick={() => {
+                          console.log('postmessage:---1')
                           window.parent.postMessage({extension: 'png', blob: packedImage()}, "*");
                         }}/>
                       </li>
@@ -305,10 +346,20 @@ const App = () => {
   </div>
 }
 
+const styleContent = `
+  input[type="file"]::-webkit-file-upload-button {
+    visibility: hidden;
+  }
+`
+
 window.onload = async () => {
   const root = document.createElement("div");
   root.id = "frame-root";
   document.body.append(root);
+
+  const style = document.createElement('style');
+  style.textContent = styleContent;
+  document.head.appendChild(style);
 
   render(() => {
     return <App/>

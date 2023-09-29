@@ -9,13 +9,14 @@
         "url": "https://github.com/fuyutarow/solid-chrome-extension-template.git"
     },
     "scripts": {
-        "dev": "vite build -w",
+        "dev": "npm run build:sandbox && vite build -w",
         "build": "vite build",
         "lint": "eslint . --fix -c .eslintrc --ext js,ts --ignore-pattern='!.*'",
-        "dev:nodemon": "nodemon",
         "build:noemit": "tsc --noEmit && vite build",
         "test": "jest",
-        "compile": "vite build -w --config vite-frame.config.ts"
+        "build:sandbox": "vite build --config vite-frame.config.ts",
+        "build:all": "npm run build:sandbox && npm run build",
+        "dev:sandbox": "vite build -w --config vite-frame.config.ts"
     },
     "type": "module",
     "dependencies": {
@@ -24,6 +25,7 @@
         "solid-element": "^1.7.1",
         "solid-js": "^1.6.2",
         "solid-transition-group": "^0.2.2",
+        "tldts": "^6.0.15",
         "webextension-polyfill": "^0.10.0"
     },
     "devDependencies": {

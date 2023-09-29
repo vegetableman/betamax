@@ -1,6 +1,7 @@
-console.log('hello frame');
 chrome.runtime.onMessage.addListener((request) => {
   console.log("Message from the background script:", request);
+  const iframe = document.querySelector("iframe");
+  iframe.contentWindow.postMessage(request, "*");
 });
 
 window.addEventListener("message", function(event) {

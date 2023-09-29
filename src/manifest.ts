@@ -13,13 +13,9 @@ const manifest = defineManifest(async () => ({
   name: packageJson.displayName ?? packageJson.name,
   version: `${major}.${minor}.${patch}.${label}`,
   description: packageJson.description,
-  options_page: "src/pages/options/index.html",
   background: { service_worker: "src/pages/background/index.ts"},
   action: {
     default_icon: "icons/34x34.png"
-  },
-  chrome_url_overrides: {
-    newtab: "src/pages/newtab/index.html",
   },
   icons: {
     "128": "icons/128x128.png",
@@ -30,7 +26,6 @@ const manifest = defineManifest(async () => ({
       js: ["src/pages/content/index.tsx"],
     },
   ],
-  devtools_page: "src/pages/devtools/index.html",
   web_accessible_resources: [
     {
       resources: ["assets/js/*.js", "assets/css/*.css", "assets/img/*", "src/pyodide.worker.js", 'src/pyodide/**'],
