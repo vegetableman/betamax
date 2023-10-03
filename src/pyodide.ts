@@ -75,11 +75,15 @@ class Pyodide {
 
   processImages(payload, cb) {
     this.worker.onmessage = function(event) {
-      console.log('onmessage: ', event);
       const {done, payload} = event.data;
       cb(done, payload);
     }
     return this._dispatch({ msg: 'processImages', payload });
+  }
+
+  terminate() {
+    this.loaded = false;
+    this.worker.terminate();
   }
 
   compressImages() {}

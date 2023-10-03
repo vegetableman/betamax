@@ -78,6 +78,7 @@ const App = () => {
   const [isExpanded, toggleExpansion] = createSignal(false);
   const [packedImage, setPackedImage] = createSignal(null);
   const [timeline, setTimeline] = createSignal(null);
+  const [showClipboardMsg, toggleClipboardMsg] = createSignal(null);
 
   const generateAnimation = async () => {
     if (generating()) return;
@@ -110,7 +111,12 @@ const App = () => {
         im.src = url;
       } else {
         const {message} = payload;
-        setMessages([...messages(), message]);
+        if (message.indexOf('/') > -1 && messages()[messages().length - 1].indexOf('/') > -1) {
+          messages()[messages().length - 1] = message;
+          setMessages([...messages()]);
+        } else {
+          setMessages([...messages(), message]);
+        }
         requestAnimationFrame(() => {
           logScroller.scrollTop = logScroller.scrollHeight;
         });
@@ -132,7 +138,7 @@ const App = () => {
     zip.file('packed_image.png', packedImage());
     zip.file('demo.html', DEMO_HTML);
     const blob = await zip.generateAsync({type: 'blob'});
-    window.parent.postMessage({extension: 'zip', blob}, "*");
+    window.parent.postMessage({extension: 'zip', blob, name: `anim_${fileName()}`}, "*");
   }
 
   onMount(() => {
@@ -164,19 +170,15 @@ const App = () => {
     } else if (e.shiftKey && e.ctrlKey && e.key === 'Delete') {
       setScreenshots((ss) => {
         let ss_ = [...ss];
-        ss_.splice(currentImage());
+        ss_.splice(currentImage() + 1);
         return ss_;
       });
       setTimes((t) => {
         let t_ = [...t];
-        t_.splice(currentImage());
+        t_.splice(currentImage() + 1);
         return t_; 
       });
       toggleTransition(false);
-      prevImage();
-      setTimeout(() => {
-        gallery.focus();
-      }, 0);
     } else if (e.shiftKey && e.key === 'Delete') {
       setScreenshots((ss) => {
         let ss_ = [...ss];
@@ -205,7 +207,7 @@ const App = () => {
             <div class="absolute left-5 bottom-6 opacity-60 hover:opacity-100 z-10">
               <div class="text-lg">⌨</div>
               <div class="text-sm text-gray-400 pb-[2px]"><b>Shift + Delete</b> to delete image. </div>
-              <div class="text-sm text-gray-400 pb-[2px]"><b>Ctrl + Shift + Delete</b> to delete images starting from this image.</div>
+              <div class="text-sm text-gray-400 pb-[2px]"><b>Ctrl + Shift + Delete</b> to delete all images following the current one.</div>
               <div class="text-sm text-gray-400"><b>Shift + Left Arrow/Right Arrow</b> to switch between images without transition.</div>
             </div>
             <button style={{display: currentImage() === 0 ? 'none': 'inline'}} class="absolute top-[45%] transform -translate-y-[50%] cursor-pointer left-0 text-gray-300 p-4 text-5xl z-10 hover:text-white" onClick={prevImage}>◂</button>
@@ -217,10 +219,10 @@ const App = () => {
                   'position': currentImage() !== i() ? 'absolute': 'relative'
                 }} class={`absolute outline-none left-0 top-0 h-full w-full flex items-center justify-center transform translate-x-[0%] ${transitionEnabled() ? 'transition-transform duration-250 ease-in-out delay-0': ''}`}>
                   <img src={src} alt={`Image ${currentImage() + 1}`} />
-                  <div class="absolute text-xl left-[48%] bottom-5 text-gray-400">
+                  <div class="absolute text-xl left-[48%] bottom-6 text-gray-400">
                     {i() + 1} of {ss().length}
                   </div>
-                  <div class="absolute text-xl right-4 bottom-5 text-gray-400">
+                  <div class="absolute text-xl right-4 bottom-6 text-gray-400">
                     {id}.png
                   </div>
                 </div>
@@ -232,11 +234,11 @@ const App = () => {
         <div class="flex flex-col w-full">
           <div class="flex flex-col flex-1 items-center w-full py-[20px] border-b border-[#ccc]">
             <div class="flex items-center w-full relative justify-center">
-              <input class="absolute select-none h-12 z-10 text-transparent cursor-pointer outline-none w-full peer" type="file" accept=".zip" ref={fileInput} onchange={async (event) => {
+              <input disabled={generating()} class="absolute select-none h-12 z-10 text-transparent cursor-pointer outline-none w-full peer" type="file" accept=".zip" ref={fileInput} onchange={async (event) => {
                 const zipFileInput = event.target;
                 if (zipFileInput.files.length > 0) {
                   const selectedZipFile = zipFileInput.files[0];
-                  setFileName(selectedZipFile.name);
+                  setFileName(selectedZipFile.name.split('.zip')[0]);
                   const zip = new JSZip();
                   const zipData = await zip.loadAsync(selectedZipFile);
                   const fileNames = Object.keys(zipData.files);
@@ -247,6 +249,9 @@ const App = () => {
                     return aNum - bNum;
                   });
 
+                  setScreenshots([]);
+                  setTimes([]);
+
                   for (const fileName of fileNames) {
                     const fileEntry = zipData.files[fileName];
                     const b64 = await fileEntry.async("base64");
@@ -256,7 +261,7 @@ const App = () => {
                   }
                 }
               }}/>
-              <button class="py-[10px] px-3 my-[10px] text-sm border-outset text-white bg-[#0349ff] peer-hover:bg-[#0944dd] border-[#0f328f] border-2" onclick={() => {
+              <button disabled={generating()} class="py-[10px] px-3 my-[10px] text-sm border-outset text-white bg-[#0349ff] peer-hover:bg-[#0944dd] border-[#0f328f] border-2" onclick={() => {
                 fileInput.click();
               }}>
                 <span class="relative pr-2 top-[-2px]">📁</span>
@@ -280,6 +285,13 @@ const App = () => {
               {generating() ? 
               <div class="absolute left-0 top-0 w-full h-full bg-progress-pattern transition-all duration-300 ease animate-progress z-10"></div>: null}
             </button>
+            <div>
+             {generating() ? <a class="hover:underline text-[blue] cursor-pointer" onclick={() => {
+              IS_PYODIDE_LOADED = false; 
+              pyodide.terminate(); 
+              setIsGenerating(false);
+              }}>Cancel</a>: null}
+            </div>
           </div>
           {generating() || messages().length ? <ul ref={logScroller} class="px-5 basis-[400px] py-3 bg-[#ddd] overflow-auto">
             <For each={messages()}>{(m) =>
@@ -301,40 +313,72 @@ const App = () => {
               <canvas ref={canvas}/>
               <div class="absolute w-96 right-3 bottom-0 shadow-tw bg-white z-[1999999] overflow-hidden">
                 <div class="rounded-t-lg bg-[white] transition-all delay-0 duration-200" classList={{'h-[500px]': isExpanded(), 'h-[44px]': !isExpanded()}}>
-                  <div class="flex justify-between py-[10px] px-[15px] cursor-pointer border-b border-gray-200 bg-slate-500" onClick={() => {
+                  <div class="flex justify-between py-[10px] px-3 cursor-pointer border-b border-gray-200 bg-[#444]" onClick={() => {
                     toggleExpansion(!isExpanded());
                   }}>
                     <div class="flex items-center text-white">
-                      <svg xmlns="http://www.w3.org/2000/svg" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-download"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
-                      <span class="text-base pl-2" style="color: var(--p-color-text)">Download</span>
+                      <span class="text-base" style="color: var(--p-color-text)">Download files</span>
                     </div>
                   </div>
-                  <div class="text-center">
-                    <p class="text-sm p-3">Below are the generated files, you can download them individually or as zip below:</p>
-                    <ul class="flex flex-col items-center">
+                  <div class="text-center h-full overflow-auto pb-12">
+                    <p class="text-sm p-3 text-left">Below are the generated files, you can download them individually or as zip below:</p>
+                    <ul class="flex flex-col items-center relative">
                       <li>
-                        <img src={URL.createObjectURL(packedImage())} class="object-cover w-24 h-24" onclick={() => {
-                          console.log('postmessage:---1')
-                          window.parent.postMessage({extension: 'png', blob: packedImage()}, "*");
+                        <img src={URL.createObjectURL(packedImage())} class="object-cover w-24 h-24 cursor-pointer border border-transparent hover:border-[crimson]" onclick={() => {
+                          window.parent.postMessage({extension: 'png', blob: packedImage(), name: fileName()}, "*");
                         }}/>
                       </li>
                       <li class="my-5">
                         <div class="flex items-center">
                           <input type="text" class="bg-[#eee] text-sm p-1 rounded-sm border-[#ddd] border-[1]" ref={timelineInput} value={timeline()}/>
-                          <button class="pl-1" onclick={async () => {
+                          <button class="pl-1 transform scale-100 active:scale-90" onclick={async () => {
                             try {
                                 await navigator.clipboard.writeText(timelineInput.value);
-                                console.log('Text copied to clipboard');
+                                toggleClipboardMsg(true);
+                                setTimeout(() => {
+                                  toggleClipboardMsg(false);
+                                }, 1000);
                             } catch (error) {
                                 console.error('Failed to copy: ', error);
                             }
-                          }}><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-clipboard"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"></path><rect x="8" y="2" width="8" height="4" rx="1" ry="1"></rect></svg></button>
+                          }}>
+                            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-clipboard">
+                              <path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"></path>
+                              <rect x="8" y="2" width="8" height="4" rx="1" ry="1"></rect>
+                            </svg>
+                          </button>
                         </div>
                       </li>
+                      {showClipboardMsg() ? <li class="absolute bottom-0 right-3 text-[11px]">Copied to Clipboard!</li>: null}
                     </ul>
                     <button class="py-[10px] px-5 mr-4 border-[#fd6900] bg-[#fb6800] text-white text-sm border-outset border-2 disabled:opacity-70 disabled:cursor-default hover:bg-[#fb3a00]" onclick={downloadZip}>
-                      <span>Download demo</span>
+                      <span>Download as zip</span>
                     </button>
+                    <div class="py-3">Found it useful? <a target="_blank" class="underline text-[#f76600] font-medium" href="https://www.buymeacoffee.com/vigneshanand">buy me a beer</a> 🍺😊</div>
+                    <div class="px-3 pb-5">
+                      <details open class="text-left">
+                        <summary class="py-2 cursor-pointer text-sm font-medium">
+                          Details on the zip and steps to use it:
+                        </summary>
+                        <div class="px-[10px] text-sm">
+                          <div class="pb-2">
+                            The zip contains the following files:
+                          </div>
+                          <div class="pb-2">
+                            <pre class="inline">packed_image.png</pre>: An image that packs all the differences between frames.
+                          </div>
+                          <div class="pb-2">
+                            <pre class="inline">timeline.js</pre>: Contains the timeline array with information on each of those differences for the animation to work.
+                          </div>
+                          <div class="pb-2">
+                            <pre class="inline">demo.html</pre>: Links to both files above. You could open this file in the browser to see the animated demo.
+                          </div>
+                          <div class="bg-[#eee] border border-[#ddd] text-sm leading-5 px-2 py-2 rounded-md">
+                            To use it, simply copy the lines from <b>line 6</b> to <b>line 63</b> on the file <pre class="inline font-semibold">demo.html</pre> in the zip and paste/modify it in your code based on your needs.
+                          </div>
+                        </div>
+                      </details>
+                    </div>
                   </div>
                 </div>
               </div>

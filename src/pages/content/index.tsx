@@ -262,7 +262,8 @@ function Resizer(props) {
 const DEFAULT_FRAME_INTERVAL = 16;
 const MIN_WIDTH = 200;
 const MIN_HEIGHT = 45;
-const zip = new JSZip();
+const SELECTION_OFFSET = 5;
+let zip = new JSZip();
 
 customElement("btm-frame", {}, () => {
   let frame;
@@ -392,7 +393,8 @@ customElement("btm-frame", {}, () => {
       r = {
         top: Math.round(r.top + (screen.height - window.innerHeight)), 
         bottom: r.bottom, 
-        width: r.width, 
+        // Add 2 pixel offset to get accurate width.
+        width: r.width + 2, 
         left: Math.round(r.left), 
         height: s.offsetTop - r.height - 1
       }
@@ -422,21 +424,22 @@ customElement("btm-frame", {}, () => {
         clearInterval(timerId);
         setIsRecording(false);
         cancelTimer();
+        context.clearRect(0, 0, canvas.width, canvas.height);
         totalSeconds = 0;
         stream.getTracks().forEach(track => track.stop());
         processScreenshots();
         times = [];
+        document.removeEventListener('stop-capture', stopCapture);
       }
+
+      document.addEventListener('stop-capture', stopCapture);
 
       stream.getVideoTracks()[0].onended = function () {
         stopCapture();
       };
-
-      document.addEventListener('stop-capture', function(e) {
-        stopCapture();
-      });
       
       async function processScreenshots() {
+        console.log('processScreenshots');
         zip.generateAsync({type: 'blob'}).then(async function(content) {
           let link = document.createElement('a')
           link.rel = 'noopener'
@@ -454,6 +457,7 @@ customElement("btm-frame", {}, () => {
             // Optional: Handle the response from the background script
             console.log('Response from background:', response);
           });
+          zip = new JSZip();
         });
       }
     }
@@ -476,11 +480,11 @@ customElement("btm-frame", {}, () => {
     const el = document.querySelector(value);
     const rect = el.getBoundingClientRect();
     setElementOffset({
-      x: rect.left,
-      y: rect.top - TITLE_BAR_HEIGHT,
+      x: rect.left - SELECTION_OFFSET,
+      y: rect.top - TITLE_BAR_HEIGHT - SELECTION_OFFSET,
     });
     const delta = dimension().height - (rect.height + MIRROR_FRAME_HEIGHT);
-    setDimension({width: rect.width, height: rect.height + MIRROR_FRAME_HEIGHT, _set: false});
+    setDimension({width: rect.width + (2 * SELECTION_OFFSET), height: rect.height + MIRROR_FRAME_HEIGHT, _set: false});
     s.style.bottom = `${parseInt(getComputedStyle(s).bottom) + delta}px`;
     se.style.bottom = `${parseInt(getComputedStyle(se).bottom) + delta}px`;
     toggleConfig(false);
