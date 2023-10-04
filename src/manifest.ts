@@ -43,7 +43,8 @@ const manifest = defineManifest(async () => ({
   permissions: [
     "activeTab",
     "webRequest",
-    "tabs"
+    "tabs",
+    "storage"
   ],
   host_permissions: [
     "http://*/*",

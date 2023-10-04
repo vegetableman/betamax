@@ -1,11 +1,5 @@
 async function processImages(data) {
-  const {screenshots: images, times, format, dimension} = data.payload;
-  let width = null;
-  let height = null;
-  if (dimension) {
-    width = dimension.width;
-    height = dimension.height;
-  }
+  const {screenshots: images, times, format, resizeFactor} = data.payload;
   await pyodide.runPythonAsync(`
     import io
     import base64
@@ -136,11 +130,10 @@ async function processImages(data) {
       #crop_height = 400
       #im = im[crop_y:crop_y+crop_height, crop_x:crop_x+crop_width]
 
-      #height, width, _ = im.shape
-      w = '${width}'
-      h = '${height}'
-      if w != 'null' and h != 'null':
-        img_obj = Image.fromarray(im).resize((int(width), int(height)))
+      height, width, _ = im.shape
+      r = float('${resizeFactor}')
+      if r != 'null':
+        img_obj = Image.fromarray(im).resize((int(width * r), int(height * r)))
         im = array(img_obj)
       if im.shape[2] == 4:
         im = im[:,:,:3]

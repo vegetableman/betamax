@@ -89,7 +89,7 @@ const style = `
   }
   .btm_mirror > .btm_s {
     position: absolute;
-    bottom: -410px;
+    bottom: -415px;
     height: ${MIRROR_FRAME_HEIGHT}px;
     width: 100%;
     cursor: s-resize;
@@ -181,11 +181,18 @@ const style = `
     justify-content: flex-start;
     padding: 15px 10px 5px 10px;
   }
+  .btm_config__row--element {
+    flex-direction: column;
+  }
   .btm_config__row__wrapper > input {
     width: 100px;
   }
   .btm_config__row__label {
     flex-basis: 230px;
+  }
+  .btm_config__row--element > .btm_config__row__label {
+    flex-basis: auto;
+    padding-bottom: 10px;
   }
   .btm_config__close-btn {
     position: absolute;
@@ -203,6 +210,9 @@ const style = `
     padding: 0 5px;
     background: var(--btm-dimension-background-color);
     color: var(--btm-btn-color);
+  }
+  .btm_config__row__x {
+    padding: 0 5px;
   }
 `;
 
@@ -262,7 +272,7 @@ function Resizer(props) {
 const DEFAULT_FRAME_INTERVAL = 16;
 const MIN_WIDTH = 200;
 const MIN_HEIGHT = 45;
-const SELECTION_OFFSET = 5;
+const FRAME_HEIGHT = 5;
 let zip = new JSZip();
 
 customElement("btm-frame", {}, () => {
@@ -283,7 +293,7 @@ customElement("btm-frame", {}, () => {
   const [isResizing, setIsResizing] = createSignal(false);
   const [interval, setFrameInterval] = createSignal(DEFAULT_FRAME_INTERVAL);
   const [selectedEl, setSelectedEl] = createSignal("");
-  const [dimension, setDimension] = createSignal({width: 400, height: 400, _set: false});
+  const [dimension, setDimension] = createSignal({width: 400, height: 400 + FRAME_HEIGHT});
   const [time, setTime] = createSignal('00:00');
   const [countDown, setCountDown] = createSignal(3);
 
@@ -394,9 +404,9 @@ customElement("btm-frame", {}, () => {
         top: Math.round(r.top + (screen.height - window.innerHeight)), 
         bottom: r.bottom, 
         // Add 2 pixel offset to get accurate width.
-        width: r.width + 2, 
+        width: r.width, 
         left: Math.round(r.left), 
-        height: s.offsetTop - r.height - 1
+        height: s.offsetTop - r.height
       }
 
       const canvas = document.createElement('canvas');
@@ -439,7 +449,6 @@ customElement("btm-frame", {}, () => {
       };
       
       async function processScreenshots() {
-        console.log('processScreenshots');
         zip.generateAsync({type: 'blob'}).then(async function(content) {
           let link = document.createElement('a')
           link.rel = 'noopener'
@@ -451,7 +460,7 @@ customElement("btm-frame", {}, () => {
           setTimeout(function () { link.click() }, 0)
           const messageToBgScript = {
             type: 'process_screenshots',
-            payload: {fileName, dimension: dimension()._set ? {...dimension()}: null}
+            payload: {fileName, dimension: dimension() ? {...dimension()}: null}
           };
           chrome.runtime.sendMessage(messageToBgScript, (response) => {
             // Optional: Handle the response from the background script
@@ -467,24 +476,24 @@ customElement("btm-frame", {}, () => {
 
   createEffect(() => {
     if (isStarting() && overlay) {
-      overlay.style.height = parseInt(w.style.height) - TITLE_BAR_HEIGHT - 5 + 'px';
+      overlay.style.height = parseInt(w.style.height) - TITLE_BAR_HEIGHT - FRAME_HEIGHT + 'px';
     }
-  })
+  });
 
   onMount(() => {
-    overlay.style.height = parseInt(w.style.height) - TITLE_BAR_HEIGHT - 5 + 'px';
-  })
+    overlay.style.height = parseInt(w.style.height) - TITLE_BAR_HEIGHT - FRAME_HEIGHT + 'px';
+  });
 
   const selectElement = (value) => {
     setSelectedEl(value);
     const el = document.querySelector(value);
     const rect = el.getBoundingClientRect();
     setElementOffset({
-      x: rect.left - SELECTION_OFFSET,
-      y: rect.top - TITLE_BAR_HEIGHT - SELECTION_OFFSET,
+      x: rect.left - FRAME_HEIGHT,
+      y: rect.top - TITLE_BAR_HEIGHT - FRAME_HEIGHT,
     });
     const delta = dimension().height - (rect.height + MIRROR_FRAME_HEIGHT);
-    setDimension({width: rect.width + (2 * SELECTION_OFFSET), height: rect.height + MIRROR_FRAME_HEIGHT, _set: false});
+    setDimension({width: rect.width + (2 * FRAME_HEIGHT), height: rect.height + MIRROR_FRAME_HEIGHT});
     s.style.bottom = `${parseInt(getComputedStyle(s).bottom) + delta}px`;
     se.style.bottom = `${parseInt(getComputedStyle(se).bottom) + delta}px`;
     toggleConfig(false);
@@ -542,6 +551,25 @@ customElement("btm-frame", {}, () => {
               </span>
           </div>
           <div class="btm_config__row">
+              <span class="btm_config__row__label">Set window size: </span>
+              <span class="btm_config__row__wrapper">
+                  <input type="text" style="width: 50px;" value={dimension().width} onchange={(e) => {
+                    let {value} = e.target;
+                    let v = parseInt(value);
+                    !Number.isNaN(v) && v > 0 && setDimension({width: v, height: dimension().height});
+                  }}/>
+                  <span class="btm_config__row__x">X</span>
+                  <input type="text" style="width: 50px;" value={dimension().height - FRAME_HEIGHT} onchange={(e) => {
+                     let {value} = e.target;
+                     let v = parseInt(value) + FRAME_HEIGHT;
+                     const h = dimension().height - v;
+                     s.style.bottom = `${parseInt(getComputedStyle(s).bottom) + h}px`;
+                     se.style.bottom = `${parseInt(getComputedStyle(se).bottom) + h}px`;
+                     !Number.isNaN(v) && v > 0 && setDimension({width: dimension().width, height: v});
+                  }}/>
+              </span>
+          </div>
+          <div class="btm_config__row btm_config__row--element">
               <span class="btm_config__row__label">Enter id or class or name of an element to record (and press <b style="font-weight: 600;">Enter</b>): </span>
               <span class="btm_config__row__wrapper">
                 <input type="text" style="width: 140px;" value={`${selectedEl()}`} onblur={(e) => {
@@ -564,27 +592,26 @@ customElement("btm-frame", {}, () => {
             if (dir === 'e') {
               const w = width + deltaX;
               if (w < MIN_WIDTH) return;
-              setDimension({width: w, height: dimension().height, _set: false});
+              setDimension({width: w, height: dimension().height});
             }
             else if (dir === 'w') {
               const w = width - deltaX;
               if (w < MIN_WIDTH) return;
               frame.style.left = `${startLeft + deltaX}px`;
-              setDimension({width: w, height: dimension().height, _set: false});
+              setDimension({width: w, height: dimension().height});
             }
             else if (dir === 's' || dir === 'se') {
               const h = dimension().height + deltaY;
                if (h < MIN_HEIGHT || width + deltaX < MIN_WIDTH) return;
               s.style.bottom = `${Math.min(parseInt(getComputedStyle(s).bottom) - deltaY, -55)}px`;
               se.style.bottom = `${Math.min(parseInt(getComputedStyle(se).bottom) - deltaY, -40)}px`;
-              setDimension({width: dir === 'se' ? width + deltaX: dimension().width, height: h, _set: false});
+              setDimension({width: dir === 'se' ? width + deltaX: dimension().width, height: h});
             }
             else if (dir === 'n') {
               const h = dimension().height - deltaY;
               if (h < MIN_HEIGHT) return;
-              console.log('h', h, parseInt(getComputedStyle(frame).top) + deltaY, deltaY)
               frame.style.top = `${parseInt(getComputedStyle(frame).top) + deltaY}px`;
-              setDimension({width: dimension().width, height: h, _set: false});
+              setDimension({width: dimension().width, height: h});
               s.style.bottom = `${parseInt(getComputedStyle(s).bottom) + deltaY}px`;
               se.style.bottom = `${parseInt(getComputedStyle(se).bottom) + deltaY}px`;
             }
@@ -604,7 +631,7 @@ customElement("btm-frame", {}, () => {
               <div></div>
             </div>
             <div class="btm_se" data-dir="se" ref={se}>
-              {isResizing() ? <div ref={dimLabel} class="btm_dimension" style={{right: `${(dimension().width - dimLabel.getBoundingClientRect().width) - 5}px`}}>{dimension().width}x{dimension().height}</div>: null}
+              {isResizing() ? <div ref={dimLabel} class="btm_dimension" style={{right: `${(dimension().width - dimLabel.getBoundingClientRect().width) - 5}px`}}>{dimension().width}x{dimension().height - FRAME_HEIGHT}</div>: null}
             </div>
           </Resizer>
         </div>

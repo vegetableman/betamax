@@ -65,6 +65,7 @@ const App = () => {
   let canvas;
   let timelineInput;
   let gallery;
+  let details;
   const [ss, setScreenshots] = createSignal([]);
   const [times, setTimes] = createSignal([]);
   const [format, setFormat] = createSignal('png');
@@ -79,6 +80,8 @@ const App = () => {
   const [packedImage, setPackedImage] = createSignal(null);
   const [timeline, setTimeline] = createSignal(null);
   const [showClipboardMsg, toggleClipboardMsg] = createSignal(null);
+  const [isDetailsOpen, setDetailsOpen] = createSignal(true);
+  const [resizeFactor, setResizeFactor] = createSignal(null);
 
   const generateAnimation = async () => {
     if (generating()) return;
@@ -92,7 +95,7 @@ const App = () => {
     setMessages([...messages(), "Pyodide is loaded."]);
     setMessages([...messages(), "Sending images to the worker..."]);
     pyodide.processImages({
-      screenshots: ss().map((s) => s.src), times: times(), format: format(), dimension: null}, async (done, payload) => {
+      screenshots: ss().map((s) => s.src), times: times(), format: format(), resizeFactor: resizeFactor()}, async (done, payload) => {
       if (done) {
         setIsGenerating(false);
         const {image, timeline: tt} = payload;
@@ -138,13 +141,14 @@ const App = () => {
     zip.file('packed_image.png', packedImage());
     zip.file('demo.html', DEMO_HTML);
     const blob = await zip.generateAsync({type: 'blob'});
-    window.parent.postMessage({extension: 'zip', blob, name: `anim_${fileName()}`}, "*");
+    window.parent.postMessage({name: 'downloadFile', extension: 'zip', blob, file: `anim_${fileName()}`}, "*");
   }
 
-  onMount(() => {
+  onMount(async () => {
     window.addEventListener('message', function(event) {
       if ( event.data instanceof Object) {
         setExampleFileName(event.data.fileName);
+        setDetailsOpen(event.data.isDetailsOpen);
       }
     });
   });
@@ -158,7 +162,6 @@ const App = () => {
   });
 
   return <div onkeydown={(e) => {
-    console.log(e.shiftKey, e.key);
     e.preventDefault();
     // disable transition on shift
     if (e.shiftKey && e.key === 'ArrowRight') {
@@ -267,16 +270,32 @@ const App = () => {
                 <span class="relative pr-2 top-[-2px]">📁</span>
                 <span>Select zip</span>
               </button>
-              <div class="flex items-center px-1 w-fit max-w-[200px] h-[43px] border border-[#333] text-[#666] text-sm border-l-0">
+              <div class="flex items-center px-1 w-fit max-w-[200px] h-[43px] border-2 border-[#333] text-[#666] text-sm border-l-0">
                 {fileName()}
               </div>
             </div>
             {exampleFileName() && <div>Recently downloaded file name: <b style="font-weight: 600;">{exampleFileName()}</b></div>}
+            <div class="items-center flex">
+              <span class="text-sm">Resize factor:</span> 
+              <select class="p-[10px] border-2 border-solid border-[#333] my-[10px] text-xs w-16 ml-1" onchange={(e) => {
+                const { value } = e.target;
+                value && setResizeFactor(parseFloat(value));
+              }}>
+                <option disabled>Select resize factor</option>
+                <option value="1" selected>1</option>
+                <option value="0.5">1/2</option>
+                <option value="0.75">3/4</option>
+              </select>
+              <div class="relative group cursor-pointer">
+                <svg class="ml-2" xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-info"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>
+                <span class="hidden group-hover:inline absolute bg-white p-1 w-48 b-[-50px] right-0 border border-[#ddd]">Set resize factor to scale images.</span>
+              </div>
+            </div>
             <select class="p-[10px] border-2 border-solid border-[#333] my-[10px] text-xs" onchange={(e) => {
               const { value } = e.target;
               value && setFormat(value);
             }}>
-              <option disabled>Select Format</option>
+              <option disabled>Select format</option>
               <option value="png" selected>PNG</option>
               <option value="webp">WEBP</option>
             </select>
@@ -286,10 +305,11 @@ const App = () => {
               <div class="absolute left-0 top-0 w-full h-full bg-progress-pattern transition-all duration-300 ease animate-progress z-10"></div>: null}
             </button>
             <div>
-             {generating() ? <a class="hover:underline text-[blue] cursor-pointer" onclick={() => {
+             {generating() ? <a class="underline text-[blue] cursor-pointer hover:opacity-75" onclick={() => {
               IS_PYODIDE_LOADED = false; 
               pyodide.terminate(); 
               setIsGenerating(false);
+              setMessages([...messages(), 'Cancelled.']);
               }}>Cancel</a>: null}
             </div>
           </div>
@@ -325,7 +345,7 @@ const App = () => {
                     <ul class="flex flex-col items-center relative">
                       <li>
                         <img src={URL.createObjectURL(packedImage())} class="object-cover w-24 h-24 cursor-pointer border border-transparent hover:border-[crimson]" onclick={() => {
-                          window.parent.postMessage({extension: 'png', blob: packedImage(), name: fileName()}, "*");
+                          window.parent.postMessage({name: 'downloadFile', extension: 'png', blob: packedImage(), file: fileName()}, "*");
                         }}/>
                       </li>
                       <li class="my-5">
@@ -356,7 +376,11 @@ const App = () => {
                     </button>
                     <div class="py-3">Found it useful? <a target="_blank" class="underline text-[#f76600] font-medium" href="https://www.buymeacoffee.com/vigneshanand">buy me a beer</a> 🍺😊</div>
                     <div class="px-3 pb-5">
-                      <details open class="text-left">
+                      <details ref={details} open={isDetailsOpen()} class="text-left" ontoggle={(e) => {
+                        const isOpen = e.target instanceof HTMLDetailsElement && e.target.open;
+                        setDetailsOpen(isOpen);
+                        window.parent.postMessage({name: 'isDetailsOpen', isOpen}, "*");
+                      }}>
                         <summary class="py-2 cursor-pointer text-sm font-medium">
                           Details on the zip and steps to use it:
                         </summary>
