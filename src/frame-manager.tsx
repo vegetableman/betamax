@@ -66,6 +66,7 @@ const App = () => {
   let timelineInput;
   let gallery;
   let details;
+  let aboutDialog;
   const [ss, setScreenshots] = createSignal([]);
   const [times, setTimes] = createSignal([]);
   const [format, setFormat] = createSignal('png');
@@ -102,6 +103,7 @@ const App = () => {
         const url =  URL.createObjectURL(image);
         setPackedImage(image);
         setTimeline(JSON.stringify(tt));
+        resetPyodide();
         showOutput(true);
         var im = new Image();
         im.onload = function()
@@ -142,6 +144,11 @@ const App = () => {
     zip.file('demo.html', DEMO_HTML);
     const blob = await zip.generateAsync({type: 'blob'});
     window.parent.postMessage({name: 'downloadFile', extension: 'zip', blob, file: `anim_${fileName()}`}, "*");
+  }
+
+  const resetPyodide = () => {
+    IS_PYODIDE_LOADED = false; 
+    pyodide.terminate(); 
   }
 
   onMount(async () => {
@@ -237,42 +244,47 @@ const App = () => {
         <div class="flex flex-col w-full">
           <div class="flex flex-col flex-1 items-center w-full py-[20px] border-b border-[#ccc]">
             <div class="flex items-center w-full relative justify-center">
-              <input disabled={generating()} class="absolute select-none h-12 z-10 text-transparent cursor-pointer outline-none w-full peer" type="file" accept=".zip" ref={fileInput} onchange={async (event) => {
-                const zipFileInput = event.target;
-                if (zipFileInput.files.length > 0) {
-                  const selectedZipFile = zipFileInput.files[0];
-                  setFileName(selectedZipFile.name.split('.zip')[0]);
-                  const zip = new JSZip();
-                  const zipData = await zip.loadAsync(selectedZipFile);
-                  const fileNames = Object.keys(zipData.files);
+              <div class="relative flex items-center">
+                <input disabled={generating()} class="absolute select-none h-12 z-10 text-transparent cursor-pointer outline-none w-full peer" type="file" accept=".zip" ref={fileInput} onchange={async (event) => {
+                  const zipFileInput = event.target;
+                  if (zipFileInput.files.length > 0) {
+                    const selectedZipFile = zipFileInput.files[0];
+                    setFileName(selectedZipFile.name.split('.zip')[0]);
+                    const zip = new JSZip();
+                    const zipData = await zip.loadAsync(selectedZipFile);
+                    const fileNames = Object.keys(zipData.files);
 
-                  fileNames.sort((a, b) => {
-                    const aNum = parseInt(a.split(".")[0]);
-                    const bNum = parseInt(b.split(".")[0]);
-                    return aNum - bNum;
-                  });
+                    fileNames.sort((a, b) => {
+                      const aNum = parseInt(a.split(".")[0]);
+                      const bNum = parseInt(b.split(".")[0]);
+                      return aNum - bNum;
+                    });
 
-                  setScreenshots([]);
-                  setTimes([]);
+                    setScreenshots([]);
+                    setTimes([]);
 
-                  for (const fileName of fileNames) {
-                    const fileEntry = zipData.files[fileName];
-                    const b64 = await fileEntry.async("base64");
-                    const t = fileEntry.name.split('.png')[0];
-                    setScreenshots([...ss(), {src: `data:image/png;base64,${b64}`, id: t}]);
-                    setTimes([...times(), parseInt(t)]);
+                    for (const fileName of fileNames) {
+                      const fileEntry = zipData.files[fileName];
+                      const b64 = await fileEntry.async("base64");
+                      const t = fileEntry.name.split('.png')[0];
+                      setScreenshots([...ss(), {src: `data:image/png;base64,${b64}`, id: t}]);
+                      setTimes([...times(), parseInt(t)]);
+                    }
                   }
-                }
-              }}/>
-              <button disabled={generating()} class="py-[10px] px-3 my-[10px] text-sm border-outset text-white bg-[#0349ff] peer-hover:bg-[#0944dd] border-[#0f328f] border-2" onclick={() => {
-                fileInput.click();
-              }}>
-                <span class="relative pr-2 top-[-2px]">📁</span>
-                <span>Select zip</span>
-              </button>
-              <div class="flex items-center px-1 w-fit max-w-[200px] h-[43px] border-2 border-[#333] text-[#666] text-sm border-l-0">
-                {fileName()}
+                }}/>
+                <button disabled={generating()} class="py-[10px] px-3 my-[10px] text-sm border-outset text-white bg-[#0349ff] peer-hover:bg-[#0944dd] border-[#0f328f] border-2" onclick={() => {
+                  fileInput.click();
+                }}>
+                  <span class="relative pr-2 top-[-2px]">📁</span>
+                  <span>Select zip</span>
+                </button>
+                <div class="flex items-center px-1 w-fit max-w-[200px] h-[43px] border-2 border-[#333] text-[#666] text-sm border-l-0">
+                  {fileName()}
+                </div>
               </div>
+              <div class="absolute top-[-10px] right-[20px] text-sm cursor-pointer hover:underline" onclick={() => {
+                aboutDialog.showModal();
+              }}>About</div>
             </div>
             {exampleFileName() && <div>Recently downloaded file name: <b style="font-weight: 600;">{exampleFileName()}</b></div>}
             <div class="items-center flex">
@@ -283,11 +295,11 @@ const App = () => {
               }}>
                 <option disabled>Select resize factor</option>
                 <option value="1" selected>1</option>
-                <option value="0.5">1/2</option>
                 <option value="0.75">3/4</option>
+                <option value="0.5">1/2</option>
               </select>
               <div class="relative group cursor-pointer">
-                <svg class="ml-2" xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-info"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>
+                <svg class="ml-2 hover:fill-[antiquewhite]" xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-info"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>
                 <span class="hidden group-hover:inline absolute bg-white p-1 w-48 b-[-50px] right-0 border border-[#ddd]">Set resize factor to scale images.</span>
               </div>
             </div>
@@ -306,8 +318,7 @@ const App = () => {
             </button>
             <div>
              {generating() ? <a class="underline text-[blue] cursor-pointer hover:opacity-75" onclick={() => {
-              IS_PYODIDE_LOADED = false; 
-              pyodide.terminate(); 
+              resetPyodide();
               setIsGenerating(false);
               setMessages([...messages(), 'Cancelled.']);
               }}>Cancel</a>: null}
@@ -374,7 +385,7 @@ const App = () => {
                     <button class="py-[10px] px-5 mr-4 border-[#fd6900] bg-[#fb6800] text-white text-sm border-outset border-2 disabled:opacity-70 disabled:cursor-default hover:bg-[#fb3a00]" onclick={downloadZip}>
                       <span>Download as zip</span>
                     </button>
-                    <div class="py-3">Found it useful? <a target="_blank" class="underline text-[#f76600] font-medium" href="https://www.buymeacoffee.com/vigneshanand">buy me a beer</a> 🍺😊</div>
+                    <div class="py-3">Found it useful? <a target="_blank" class="underline text-[#f76600] font-medium" href="https://www.buymeacoffee.com/vigneshanand">buy me a donut</a> 🍩😊</div>
                     <div class="px-3 pb-5">
                       <details ref={details} open={isDetailsOpen()} class="text-left" ontoggle={(e) => {
                         const isOpen = e.target instanceof HTMLDetailsElement && e.target.open;
@@ -411,12 +422,27 @@ const App = () => {
         </div>
       </div>
     </div>
+    <dialog ref={aboutDialog}>
+      <p class="text-sm">Built by <a class="text-[blue] outline-none hover:underline" href="https://vigneshanand.com/" target="_blank">Vignesh Anand</a>.</p>
+      <p class="text-xs pt-2"><a class="text-[blue] hover:underline" href="https://github.com/vegetableman/betamax" target="_blank">https://github.com/vegetableman/betamax</a></p>
+      <button class="hover:underline border border-black mt-2 p-1 float-right" onclick={() => {
+        aboutDialog.close();
+      }}>close</button>
+    </dialog>
   </div>
 }
 
 const styleContent = `
   input[type="file"]::-webkit-file-upload-button {
     visibility: hidden;
+  }
+  ::backdrop {
+    background-image: linear-gradient(
+      45deg,
+      #87345e,
+      mediumpurple
+    );
+    opacity: 0.75;
   }
 `
 

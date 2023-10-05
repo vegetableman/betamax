@@ -131,8 +131,9 @@ async function processImages(data) {
       #im = im[crop_y:crop_y+crop_height, crop_x:crop_x+crop_width]
 
       height, width, _ = im.shape
-      r = float('${resizeFactor}')
+      r = '${resizeFactor}'
       if r != 'null':
+        r = float(r)
         img_obj = Image.fromarray(im).resize((int(width * r), int(height * r)))
         im = array(img_obj)
       if im.shape[2] == 4:
