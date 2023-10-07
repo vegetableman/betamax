@@ -140,7 +140,7 @@ const App = () => {
   const downloadZip = async () => {
     const zip = new JSZip();
     zip.file('timeline.js', `timeline=${timeline()}`);
-    zip.file('packed_image.png', packedImage());
+    zip.file(`packed_image.${format()}`, packedImage());
     zip.file('demo.html', DEMO_HTML);
     const blob = await zip.generateAsync({type: 'blob'});
     window.parent.postMessage({name: 'downloadFile', extension: 'zip', blob, file: `anim_${fileName()}`}, "*");
@@ -244,7 +244,7 @@ const App = () => {
         <div class="flex flex-col w-full">
           <div class="flex flex-col flex-1 items-center w-full py-[20px] border-b border-[#ccc]">
             <div class="flex items-center w-full relative justify-center">
-              <div class="relative flex items-center">
+              <div class="relative flex items-center pt-2">
                 <input disabled={generating()} class="absolute select-none h-12 z-10 text-transparent cursor-pointer outline-none w-full peer" type="file" accept=".zip" ref={fileInput} onchange={async (event) => {
                   const zipFileInput = event.target;
                   if (zipFileInput.files.length > 0) {
@@ -282,7 +282,7 @@ const App = () => {
                   {fileName()}
                 </div>
               </div>
-              <div class="absolute top-[-10px] right-[20px] text-sm cursor-pointer hover:underline" onclick={() => {
+              <div class="absolute top-[-10px] right-[20px] text-sm cursor-pointer underline hover:opacity-70" onclick={() => {
                 aboutDialog.showModal();
               }}>About</div>
             </div>
@@ -356,7 +356,7 @@ const App = () => {
                     <ul class="flex flex-col items-center relative">
                       <li>
                         <img src={URL.createObjectURL(packedImage())} class="object-cover w-24 h-24 cursor-pointer border border-transparent hover:border-[crimson]" onclick={() => {
-                          window.parent.postMessage({name: 'downloadFile', extension: 'png', blob: packedImage(), file: fileName()}, "*");
+                          window.parent.postMessage({name: 'downloadFile', extension: format(), blob: packedImage(), file: fileName()}, "*");
                         }}/>
                       </li>
                       <li class="my-5">
@@ -400,7 +400,7 @@ const App = () => {
                             The zip contains the following files:
                           </div>
                           <div class="pb-2">
-                            <pre class="inline">packed_image.png</pre>: An image that packs all the differences between frames.
+                            <pre class="inline">packed_image.png (or .webp)</pre>: An image that packs all the differences between frames.
                           </div>
                           <div class="pb-2">
                             <pre class="inline">timeline.js</pre>: Contains the timeline array with information on each of those differences for the animation to work.
