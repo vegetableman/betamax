@@ -163,10 +163,15 @@ const style = `
     position: relative;
     top: -30px;
   }
-  .btm_title__close-btn, .btm_title__config-btn {
+  .btm_title__close-btn, .btm_title__config-btn, .btm_title__cancel-btn {
     background: none;
     color: var(--btm-btn-color);
     cursor: pointer;
+  }
+  .btm_title__cancel-btn {
+    position: relative;
+    left: -40px;
+    color: red;
   }
   .btm_config {
     position: absolute;
@@ -288,6 +293,7 @@ const DEFAULT_FRAME_INTERVAL = 16;
 const MIN_WIDTH = 200;
 const MIN_HEIGHT = 45;
 const FRAME_HEIGHT = 5;
+const __BTM_FRAME_INTERVAL_KEY = '__btm_frame_interval';
 let zip = new JSZip();
 
 customElement("btm-frame", {}, () => {
@@ -308,11 +314,14 @@ customElement("btm-frame", {}, () => {
   const [showConfig, toggleConfig] = createSignal(false);
   const [isResizing, setIsResizing] = createSignal(false);
   const [showBottomBar, toggleBottomBar] = createSignal(false);
-  const [interval, setFrameInterval] = createSignal(DEFAULT_FRAME_INTERVAL);
+  const [frameInterval, setFrameInterval] = createSignal(DEFAULT_FRAME_INTERVAL);
   const [selectedEl, setSelectedEl] = createSignal("");
   const [dimension, setDimension] = createSignal({width: 400, height: 400 + FRAME_HEIGHT});
   const [time, setTime] = createSignal('00:00');
   const [countDown, setCountDown] = createSignal(3);
+  const [imageQuality, setImageQuality] = createSignal(1);
+  const [imageFormat, setImageFormat] = createSignal("webp");
+  const [isCancelled, setIsCancelled] = createSignal(false);
 
   const handleMouseDown = (event) => {
     if (event.target.classList.contains('record-btn') || isRecording()) {
@@ -384,6 +393,7 @@ customElement("btm-frame", {}, () => {
   function startCapture() {
     setTime('00:00');
     setCountDown(3);
+    setIsCancelled(false);
 
     async function captureElementScreenshots() {
       // Request screen capture permission
@@ -422,23 +432,30 @@ customElement("btm-frame", {}, () => {
       });
     
       let times = [];
+      let completions = [];
       let r = frame.getBoundingClientRect();
       r = {
         top: Math.round(r.top + (screen.height - window.innerHeight)), 
         bottom: r.bottom, 
-        // Add 2 pixel offset to get accurate width.
         width: r.width, 
         left: Math.round(r.left), 
-        height: s.offsetTop - r.height
+        height: s.offsetTop - r.height - 1
       }
 
       const canvas = document.createElement('canvas');
       canvas.width = r.width;
       canvas.height = r.height;
 
-      const context = canvas.getContext('2d');
-
+      const context = canvas.getContext('2d', { alpha: false, willReadFrequently: true });
       let isStarted = false;
+
+      function postCapture() {
+        if (completions.length === times.length && !isRecording() && !isCancelled()) {
+          processScreenshots();
+          times = [];
+          completions = [];
+        }
+      }
 
       const cancelTimer = intervalTimer(() => {
         let t = Math.round(videoElement.currentTime * 1000);
@@ -447,21 +464,29 @@ customElement("btm-frame", {}, () => {
           isStarted = true;
           setTime(updateTimer());
         }
+        context.clearRect(0, 0, canvas.width, canvas.height);
         context.drawImage(videoElement, -r.left, -r.top);
+
         canvas.toBlob((blob) => {
-          zip.file(`${t}.png`, blob);
-        })
-      }, interval());
+          if (isCancelled()) {
+            times = [];
+            completions = [];
+            return;
+          }
+          completions.push(t);
+          zip.file(`${t}.${imageFormat()}`, blob);
+          postCapture();
+        }, `image/${imageFormat()}`, imageQuality());
+     
+      }, frameInterval());
 
       stopCapture = async function() {
         clearInterval(timerId);
         setIsRecording(false);
         cancelTimer();
-        context.clearRect(0, 0, canvas.width, canvas.height);
         totalSeconds = 0;
         stream.getTracks().forEach(track => track.stop());
-        processScreenshots();
-        times = [];
+        postCapture();
         document.removeEventListener('stop-capture', stopCapture);
       }
 
@@ -479,11 +504,11 @@ customElement("btm-frame", {}, () => {
           let loc = parse(document.location.href);
           let fileName = `${loc.domainWithoutSuffix || 'images'}_${Date.now()}.zip`;
           link.download = fileName;
-          setTimeout(function () { URL.revokeObjectURL(link.href) }, 4E4) // 40s
-          setTimeout(function () { link.click() }, 0)
+          setTimeout(function () { URL.revokeObjectURL(link.href) }, 4E4); // 40s
+          setTimeout(function () { link.click() }, 0);
           const messageToBgScript = {
             type: 'process_screenshots',
-            payload: {fileName, dimension: dimension() ? {...dimension()}: null}
+            payload: {fileName, format: imageFormat(), dimension: dimension() ? {...dimension()}: null}
           };
           chrome.runtime.sendMessage(messageToBgScript, (response) => {
             // Optional: Handle the response from the background script
@@ -503,8 +528,12 @@ customElement("btm-frame", {}, () => {
     }
   });
 
-  onMount(() => {
+  onMount(async () => {
     document.addEventListener('start-capture', startCapture);
+    const data = await chrome.storage.sync.get(__BTM_FRAME_INTERVAL_KEY);
+    if (data && data[__BTM_FRAME_INTERVAL_KEY]) {
+      setFrameInterval(data[__BTM_FRAME_INTERVAL_KEY]);
+    }
   });
 
   onCleanup(() => {
@@ -550,23 +579,33 @@ customElement("btm-frame", {}, () => {
       <style>{style}</style>
       <div class="btm_frame__inner">
         <div class="btm_title_bar" onMouseDown={handleMouseDown}>
-          {!isRecording() ? <button class="btm_record-btn" onClick={startCapture}>
+          {!isRecording() ? <button title="Record (Alt + Shift + C)" class="btm_record-btn" onClick={startCapture}>
             <span class="btm_icon">⬤</span>
             <span>Record</span>
           </button>: null}
-          {isRecording() ? <button class="btm_stop-btn" onClick={() => {
+          {isRecording() ? <button title="Stop (Alt + Shift + O)" class="btm_stop-btn" onClick={() => {
             document.dispatchEvent(stopEvent);
           }}>
             <span class="btm_icon">◼</span>
             <span>Stop</span>
           </button>: null}
-          {isRecording() ? <span class="btm_title__timer">{time()}</span>: null}
+          {isRecording() ?
+            <span>
+              <button title="Cancel" class="btm_title__cancel-btn"  onclick={() => {
+                setIsCancelled(true);
+                document.dispatchEvent(stopEvent);
+              }}>✖</button>
+              <span class="btm_title__timer">
+                {time()}
+              </span>
+            </span>: 
+          null}
           {isStarting() ? <span class="btm_title__text">Starting</span>: null}
           <div>
-            <button class="btm_title__config-btn" disabled={isRecording()} onclick={() => {
+            <button title="Settings" class="btm_title__config-btn" disabled={isRecording()} onclick={() => {
               toggleConfig((c) => !c);
             }}>⚙</button>
-            <button class="btm_title__close-btn" disabled={isRecording()} onclick={() => {
+            <button title="Close" class="btm_title__close-btn" disabled={isRecording()} onclick={() => {
               document.querySelector('btm-frame').remove();
             }}>✖</button>
           </div>
@@ -578,15 +617,39 @@ customElement("btm-frame", {}, () => {
           <div class="btm_config__row">
               <span class="btm_config__row__label">Frame Interval (ms): </span>
               <span class="btm_config__row__wrapper">
-                <input type="text" style="width: 50px;" value={`${interval()}`} onchange={(e) => {
+                <input type="text" style="width: 50px;" value={`${frameInterval()}`} onchange={(e) => {
                   let {value} = e.target;
                   let v = parseInt(value);
                   !Number.isNaN(v) && v > 0 && setFrameInterval(v);
+                  chrome.storage.sync.set({[__BTM_FRAME_INTERVAL_KEY]: v});
                 }}/>
               </span>
           </div>
           <div class="btm_config__row">
-              <span class="btm_config__row__label">Set window size: </span>
+              <span class="btm_config__row__label">Image format: </span>
+              <span class="btm_config__row__wrapper">
+                <select value={`${imageFormat()}`} onchange={(e) => {
+                  let {value} = e.target;
+                  setImageFormat(value);
+                }}>
+                  <option value="webp">WebP</option>
+                  <option value="png">Png</option>
+                </select>
+              </span>
+          </div>
+          <div class="btm_config__row">
+              <span class="btm_config__row__label">Image quality (for WebP): </span>
+              <span class="btm_config__row__wrapper">
+                <input type="range" step="0.1" max="1" min="0" value={`${imageQuality()}`} oninput={(e) => {
+                  if (e.target instanceof HTMLInputElement) {
+                   setImageQuality(parseFloat(e.target.value));
+                  }
+                }}/>
+              </span>
+              <span style="padding-left: 2px">{imageQuality()}</span>
+          </div>
+          <div class="btm_config__row">
+              <span class="btm_config__row__label">Frame size: </span>
               <span class="btm_config__row__wrapper">
                   <input type="text" style="width: 50px;" value={dimension().width} onchange={(e) => {
                     let {value} = e.target;
@@ -617,7 +680,7 @@ customElement("btm-frame", {}, () => {
                 }}/>
               </span>
           </div>
-          <span class="btm_config__close-btn" onclick={() => {
+          <span title="Close" class="btm_config__close-btn" onclick={() => {
             toggleConfig((c) => !c);
           }}>✖</span>
         </div> : null}
@@ -641,6 +704,9 @@ customElement("btm-frame", {}, () => {
               s.style.bottom = `${Math.min(parseInt(getComputedStyle(s).bottom) - deltaY, -55)}px`;
               se.style.bottom = `${Math.min(parseInt(getComputedStyle(se).bottom) - deltaY, -40)}px`;
               setDimension({width: dir === 'se' ? width + deltaX: dimension().width, height: h});
+              if (showBottomBar()) {
+                bottomBar.style.bottom = `${parseInt(getComputedStyle(s).bottom) - (TITLE_BAR_HEIGHT - 3 * FRAME_HEIGHT)}px`;
+              }
             }
             else if (dir === 'n') {
               const h = dimension().height - deltaY;
@@ -681,7 +747,17 @@ customElement("btm-frame", {}, () => {
             <span class="btm_icon">◼</span>
             <span>Stop</span>
           </button>: null}
-          {isRecording() ? <span class="btm_title__timer">{time()}</span>: null}
+          {isRecording() ?
+            <span>
+              <button title="Cancel" class="btm_title__cancel-btn"  onclick={() => {
+                setIsCancelled(true);
+                document.dispatchEvent(stopEvent);
+              }}>✖</button>
+              <span class="btm_title__timer">
+                {time()}
+              </span>
+            </span>: 
+          null}
           {isStarting() ? <span class="btm_title__text">Starting</span>: null}
           <div style="padding-left: 15px;">
             <button class="btm_title__config-btn" disabled={isRecording()} onclick={() => {

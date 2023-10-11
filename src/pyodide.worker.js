@@ -113,135 +113,140 @@ async function processImages(data) {
     i = 0
     print(f"Reading Images...")
 
-    for u in urls:
-      if u == last_url:
+    try:
+      for u in urls:
+        if u == last_url:
+          i = i + 1
+          continue
+        last_url = u;
+        # Remove the "data:image/<image_format>;base64," prefix
+        base64_data = u.split(",")[1]
+
+        # Decode the Base64 data into binary form
+        image_data = base64.b64decode(base64_data)
+        im = iio.imread(io.BytesIO(image_data))
+        #crop_x = 0
+        #crop_y = 0
+        #crop_width = 400
+        #crop_height = 400
+        #im = im[crop_y:crop_y+crop_height, crop_x:crop_x+crop_width]
+
+        height, width, _ = im.shape
+        r = '${resizeFactor}'
+        if r != 'null':
+          r = float(r)
+          img_obj = Image.fromarray(im).resize((int(width * r), int(height * r)))
+          im = array(img_obj)
+        if im.shape[2] == 4:
+          im = im[:,:,:3]
+        images.append(im)
+        times.append(int(times_[i]))
         i = i + 1
-        continue
-      last_url = u;
-      # Remove the "data:image/<image_format>;base64," prefix
-      base64_data = u.split(",")[1]
+        
+      t0 = time() - t0
+      print(f"Finished in {round(t0, 2)}s")
 
-      # Decode the Base64 data into binary form
-      image_data = base64.b64decode(base64_data)
-      im = iio.imread(io.BytesIO(image_data))
-      #crop_x = 0
-      #crop_y = 0
-      #crop_width = 400
-      #crop_height = 400
-      #im = im[crop_y:crop_y+crop_height, crop_x:crop_x+crop_width]
+      t1 = time()
 
-      height, width, _ = im.shape
-      r = '${resizeFactor}'
-      if r != 'null':
-        r = float(r)
-        img_obj = Image.fromarray(im).resize((int(width * r), int(height * r)))
-        im = array(img_obj)
-      if im.shape[2] == 4:
-        im = im[:,:,:3]
-      images.append(im)
-      times.append(int(times_[i]))
-      i = i + 1
+      print(f"Diffing Images...")
+
+      zero = images[0] - images[0]
+      pairs = zip([zero] + images[:-1], images)
+      diffs = [sign((b - a).max(2)) for a, b in pairs]
+
+      img_areas = [nd.find_objects(nd.label(d)[0]) for d in diffs]
+
+      img_areas = [simplify(x, SIMPLIFICATION_TOLERANCE) for x in img_areas]
+
+      t1 = time() - t1
+      print(f"Finished in {round(t1, 2)}s")
       
-    t0 = time() - t0
-    print(f"Finished in {round(t0, 2)}s")
+      ih, iw, _ = shape(images[0])
 
-    t1 = time()
+      allocator = Allocator2D(MAX_PACKED_HEIGHT, iw)
+      packed = zeros((MAX_PACKED_HEIGHT, iw, 3), dtype=uint8)
 
-    print(f"Diffing Images...")
+      rects_by_size = []
+      for i in range(len(images)):
+        src_rects = img_areas[i]
 
-    zero = images[0] - images[0]
-    pairs = zip([zero] + images[:-1], images)
-    diffs = [sign((b - a).max(2)) for a, b in pairs]
+        for j in range(len(src_rects)):
+            rects_by_size.append((slice_tuple_size(src_rects[j]), i, j))
 
-    img_areas = [nd.find_objects(nd.label(d)[0]) for d in diffs]
+      rects_by_size.sort(reverse = True)
 
-    img_areas = [simplify(x, SIMPLIFICATION_TOLERANCE) for x in img_areas]
+      allocs = [[None] * len(src_rects) for src_rects in img_areas]
 
-    t1 = time() - t1
-    print(f"Finished in {round(t1, 2)}s")
-    
-    ih, iw, _ = shape(images[0])
+      total_rects = len(rects_by_size)
 
-    allocator = Allocator2D(MAX_PACKED_HEIGHT, iw)
-    packed = zeros((MAX_PACKED_HEIGHT, iw, 3), dtype=uint8)
+      print(f"Found {total_rects} differing regions.")
 
-    rects_by_size = []
-    for i in range(len(images)):
-      src_rects = img_areas[i]
+      t2 = time()
+      print(f"Packing those differences...")
 
-      for j in range(len(src_rects)):
-          rects_by_size.append((slice_tuple_size(src_rects[j]), i, j))
+      rc = 1;
+      for size,i,j in rects_by_size:
+        print(f"{rc}/{total_rects}")
+        src = images[i]
+        src_rects = img_areas[i]
 
-    rects_by_size.sort(reverse = True)
-
-    allocs = [[None] * len(src_rects) for src_rects in img_areas]
-
-    total_rects = len(rects_by_size)
-
-    print(f"Found {total_rects} differing regions.")
-
-    t2 = time()
-    print(f"Packing those differences...")
-
-    rc = 1;
-    for size,i,j in rects_by_size:
-      print(f"{rc}/{total_rects}")
-      src = images[i]
-      src_rects = img_areas[i]
-
-      a, b = src_rects[j]
-      sx, sy = b.start, a.start
-      w, h = b.stop - b.start, a.stop - a.start
-
-      existing = find_matching_rect(allocator.bitmap, allocator.num_used_rows, packed, src, sx, sy, w, h)
-      if existing:
-        dy, dx = existing
-        allocs[i][j] = (dy, dx)
-      else:
-        dy, dx = allocator.allocate(w, h)
-        allocs[i][j] = (dy, dx)
-
-      packed[dy:dy+h, dx:dx+w] = src[sy:sy+h, sx:sx+w]
-      rc = rc + 1
-
-    packed = packed[0:allocator.num_used_rows]
-
-    t2 = time() - t2
-    print(f"Finished in {round(t2, 2)}s")
-
-    t3 = time()
-    print(f"Writing the image...")
-
-    buffer = io.BytesIO()
-    iio.imwrite(buffer, packed, extension='.${format}')
-    
-    t3 = time() - t3
-    print(f"Finished in {round(t3, 2)}s")
-
-    buffer.seek(0)
-    buffer_content = buffer.getvalue()
-
-    print(f"Creating the timeline...")
-    delays = (array(times[1:] + [times[-1] + END_FRAME_PAUSE]) - array(times)).tolist()
-    
-    timeline = []
-    for i in range(len(images)):
-      src_rects = img_areas[i]
-      dst_rects = allocs[i]
-      blitlist = []
-
-      for j in range(len(src_rects)):
         a, b = src_rects[j]
         sx, sy = b.start, a.start
         w, h = b.stop - b.start, a.stop - a.start
-        dy, dx = dst_rects[j]
 
-        blitlist.append([dx, dy, w, h, sx, sy])
+        existing = find_matching_rect(allocator.bitmap, allocator.num_used_rows, packed, src, sx, sy, w, h)
+        if existing:
+          dy, dx = existing
+          allocs[i][j] = (dy, dx)
+        else:
+          dy, dx = allocator.allocate(w, h)
+          allocs[i][j] = (dy, dx)
 
-      timeline.append({'delay': delays[i], 'blit': blitlist})
-    
-    t = time() - t
-    print(f"Total time: {round(t, 2)}s")
+        packed[dy:dy+h, dx:dx+w] = src[sy:sy+h, sx:sx+w]
+        rc = rc + 1
+
+      packed = packed[0:allocator.num_used_rows]
+
+      t2 = time() - t2
+      print(f"Finished in {round(t2, 2)}s")
+
+      t3 = time()
+      print(f"Writing the image...")
+
+      buffer = io.BytesIO()
+      iio.imwrite(buffer, packed, extension='.${format}')
+      
+      t3 = time() - t3
+      print(f"Finished in {round(t3, 2)}s")
+
+      buffer.seek(0)
+      buffer_content = buffer.getvalue()
+
+      print(f"Creating the timeline...")
+      delays = (array(times[1:] + [times[-1] + END_FRAME_PAUSE]) - array(times)).tolist()
+      
+      timeline = []
+      for i in range(len(images)):
+        src_rects = img_areas[i]
+        dst_rects = allocs[i]
+        blitlist = []
+
+        for j in range(len(src_rects)):
+          a, b = src_rects[j]
+          sx, sy = b.start, a.start
+          w, h = b.stop - b.start, a.stop - a.start
+          dy, dx = dst_rects[j]
+
+          blitlist.append([dx, dy, w, h, sx, sy])
+
+        timeline.append({'delay': delays[i], 'blit': blitlist})
+      
+      t = time() - t
+      print(f"Total time: {round(t, 2)}s")
+    except Exception as e:
+      exception_str = str(e)
+      print(f"Error generating the result:")
+      print(f"{exception_str}")
   `)
 
   const buffer = pyodide.globals.get('buffer_content').toJs();

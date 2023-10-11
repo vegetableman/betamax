@@ -1,7 +1,9 @@
+const isDetailsOpenKey = '__btm_is_details_open';
+
 chrome.runtime.onMessage.addListener(async (request) => {
   const iframe = document.querySelector("iframe");
-  const data = await chrome.storage.sync.get("isDetailsOpen");
-  request.isDetailsOpen = data ? data.isDetailsOpen: false;
+  const data = await chrome.storage.sync.get(isDetailsOpenKey);
+  request.isDetailsOpen = data ? data[isDetailsOpenKey]: false;
   iframe.contentWindow.postMessage(request, "*");
 });
 
@@ -16,7 +18,7 @@ window.addEventListener("message", function(event) {
       setTimeout(function () { URL.revokeObjectURL(link.href) }, 4E4); // 40s
       setTimeout(function () { link.click() }, 0);
     } else if (name === 'isDetailsOpen') {
-      chrome.storage.sync.set({'isDetailsOpen': isOpen});
+      chrome.storage.sync.set({[isDetailsOpenKey]: isOpen});
     }
   }
 });

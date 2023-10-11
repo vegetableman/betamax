@@ -69,7 +69,7 @@ const App = () => {
   let aboutDialog;
   const [ss, setScreenshots] = createSignal([]);
   const [times, setTimes] = createSignal([]);
-  const [format, setFormat] = createSignal('png');
+  const [format, setFormat] = createSignal('webp');
   const [fileName, setFileName] = createSignal('No file choosen');
   const [exampleFileName, setExampleFileName] = createSignal(null);
   const [currentImage, setCurrentImage] = createSignal(0);
@@ -83,10 +83,12 @@ const App = () => {
   const [showClipboardMsg, toggleClipboardMsg] = createSignal(null);
   const [isDetailsOpen, setDetailsOpen] = createSignal(true);
   const [resizeFactor, setResizeFactor] = createSignal(null);
+  const [err, toggleError] = createSignal(null);
 
   const generateAnimation = async () => {
     if (generating()) return;
 
+    toggleError(false);
     setIsGenerating(true);
     setMessages([]);
     setMessages([...messages(), "Loading Pyodide..."]);
@@ -103,7 +105,7 @@ const App = () => {
         const url =  URL.createObjectURL(image);
         setPackedImage(image);
         setTimeline(JSON.stringify(tt));
-        resetPyodide();
+        terminatePyodide();
         showOutput(true);
         var im = new Image();
         im.onload = function()
@@ -119,6 +121,15 @@ const App = () => {
         if (message.indexOf('/') > -1 && messages()[messages().length - 1].indexOf('/') > -1) {
           messages()[messages().length - 1] = message;
           setMessages([...messages()]);
+        } else if (message.includes("Error generating the result:")) {
+          setMessages([...messages(), message]);
+          toggleError({line: messages().length - 1});
+          console.log('error muah----');
+        } else if (err()) {
+          setMessages([...messages(), message]);
+          console.log('err():', err(), messages());
+          setIsGenerating(false);
+          terminatePyodide();
         } else {
           setMessages([...messages(), message]);
         }
@@ -139,14 +150,14 @@ const App = () => {
 
   const downloadZip = async () => {
     const zip = new JSZip();
-    zip.file('timeline.js', `timeline=${timeline()}`);
+    zip.file('timeline.json', timeline());
     zip.file(`packed_image.${format()}`, packedImage());
-    zip.file('demo.html', DEMO_HTML);
+    zip.file('demo.html', DEMO_HTML.replace('__TIMELINE__PLACEHOLDER__', timeline()).replace('__EXTENSION__', format()));
     const blob = await zip.generateAsync({type: 'blob'});
     window.parent.postMessage({name: 'downloadFile', extension: 'zip', blob, file: `anim_${fileName()}`}, "*");
   }
 
-  const resetPyodide = () => {
+  const terminatePyodide = () => {
     IS_PYODIDE_LOADED = false; 
     pyodide.terminate(); 
   }
@@ -155,6 +166,7 @@ const App = () => {
     window.addEventListener('message', function(event) {
       if ( event.data instanceof Object) {
         setExampleFileName(event.data.fileName);
+        setFormat(event.data.format);
         setDetailsOpen(event.data.isDetailsOpen);
       }
     });
@@ -189,6 +201,9 @@ const App = () => {
         return t_; 
       });
       toggleTransition(false);
+      setTimeout(() => {
+        gallery.focus();
+      }, 10);
     } else if (e.shiftKey && e.key === 'Delete') {
       setScreenshots((ss) => {
         let ss_ = [...ss];
@@ -200,6 +215,9 @@ const App = () => {
         t_.splice(currentImage(), 1);
         return t_; 
       });
+      setTimeout(() => {
+        gallery.focus();
+      }, 10);
     } else if (e.key === 'ArrowRight') {
       toggleTransition(true);
       nextImage()
@@ -216,9 +234,9 @@ const App = () => {
             <div class="absolute"></div>
             <div class="absolute left-5 bottom-6 opacity-60 hover:opacity-100 z-10">
               <div class="text-lg">⌨</div>
-              <div class="text-sm text-gray-400 pb-[2px]"><b>Shift + Delete</b> to delete image. </div>
-              <div class="text-sm text-gray-400 pb-[2px]"><b>Ctrl + Shift + Delete</b> to delete all images following the current one.</div>
-              <div class="text-sm text-gray-400"><b>Shift + Left Arrow/Right Arrow</b> to switch between images without transition.</div>
+              <div class="text-sm text-gray-400 pb-[2px]"><b>Shift + Delete</b> to delete frame. </div>
+              <div class="text-sm text-gray-400 pb-[2px]"><b>Ctrl + Shift + Delete</b> to delete all frames following the current one.</div>
+              <div class="text-sm text-gray-400"><b>Shift + Left Arrow/Right Arrow</b> to switch between frames without transition.</div>
             </div>
             <button style={{display: currentImage() === 0 ? 'none': 'inline'}} class="absolute top-[45%] transform -translate-y-[50%] cursor-pointer left-0 text-gray-300 p-4 text-5xl z-10 hover:text-white" onClick={prevImage}>◂</button>
             <button style={{display: currentImage() === ss().length - 1 ? 'none': 'inline'}}  class="absolute top-[45%] transform -translate-y-[50%] cursor-pointer right-0 text-gray-300 p-4 text-5xl z-10 hover:text-white" onClick={nextImage}>▸</button>
@@ -233,7 +251,7 @@ const App = () => {
                     {i() + 1} of {ss().length}
                   </div>
                   <div class="absolute text-xl right-4 bottom-6 text-gray-400">
-                    {id}.png
+                    {id}
                   </div>
                 </div>
               }</For>
@@ -266,10 +284,14 @@ const App = () => {
                     for (const fileName of fileNames) {
                       const fileEntry = zipData.files[fileName];
                       const b64 = await fileEntry.async("base64");
-                      const t = fileEntry.name.split('.png')[0];
-                      setScreenshots([...ss(), {src: `data:image/png;base64,${b64}`, id: t}]);
+                      const [t, format] = fileEntry.name.split('.');
+                      setScreenshots([...ss(), {src: `data:image/${format};base64,${b64}`, id: fileEntry.name}]);
                       setTimes([...times(), parseInt(t)]);
                     }
+
+                    setTimeout(() => {
+                      gallery.focus();
+                    }, 10);
                   }
                 }}/>
                 <button disabled={generating()} class="py-[10px] px-3 my-[10px] text-sm border-outset text-white bg-[#0349ff] peer-hover:bg-[#0944dd] border-[#0f328f] border-2" onclick={() => {
@@ -303,13 +325,13 @@ const App = () => {
                 <span class="hidden group-hover:inline absolute bg-white p-1 w-48 b-[-50px] right-0 border border-[#ddd]">Set resize factor to scale images.</span>
               </div>
             </div>
-            <select class="p-[10px] border-2 border-solid border-[#333] my-[10px] text-xs" onchange={(e) => {
+            <select class="p-[10px] border-2 border-solid border-[#333] my-[10px] text-xs" value={format()} onchange={(e) => {
               const { value } = e.target;
               value && setFormat(value);
             }}>
               <option disabled>Select format</option>
-              <option value="png" selected>PNG</option>
-              <option value="webp">WEBP</option>
+              <option value="webp" selected>WEBP</option>
+              <option value="png">PNG</option>
             </select>
             <button style={{cursor: generating()? 'default': 'pointer'}} disabled={!ss()?.length} class="relative py-[10px] px-2 my-[10px] w-40 h-10 border-[#ef5527] bg-[#f46236] text-white text-sm border-outset border-2 disabled:opacity-70 disabled:cursor-default hover:not-disabled:bg-[#fb3a00]" onclick={generateAnimation}>
               <div class="absolute left-4 top-2 z-20">Generate animation</div>
@@ -318,15 +340,15 @@ const App = () => {
             </button>
             <div>
              {generating() ? <a class="underline text-[blue] cursor-pointer hover:opacity-75" onclick={() => {
-              resetPyodide();
+              terminatePyodide();
               setIsGenerating(false);
               setMessages([...messages(), 'Cancelled.']);
               }}>Cancel</a>: null}
             </div>
           </div>
           {generating() || messages().length ? <ul ref={logScroller} class="px-5 basis-[400px] py-3 bg-[#ddd] overflow-auto">
-            <For each={messages()}>{(m) =>
-              <li class="text-sm leading-6"> {'>'} {m()}</li>
+            <For each={messages()}>{(m, i) =>
+              <li classList={{'text-red-600': err() && i() >= err().line, 'text-sm': true, 'leading-6': true}}> {'>'} {m()}</li>
             }</For>
           </ul>: null}
           {isOutput() ? <Portal>
@@ -400,10 +422,10 @@ const App = () => {
                             The zip contains the following files:
                           </div>
                           <div class="pb-2">
-                            <pre class="inline">packed_image.png (or .webp)</pre>: An image that packs all the differences between frames.
+                            <pre class="inline">packed_image.webp (or .png)</pre>: An image that packs all the differences between frames.
                           </div>
                           <div class="pb-2">
-                            <pre class="inline">timeline.js</pre>: Contains the timeline array with information on each of those differences for the animation to work.
+                            <pre class="inline">timeline.json</pre>: Contains the timeline array with information on each of those differences for the animation to work.
                           </div>
                           <div class="pb-2">
                             <pre class="inline">demo.html</pre>: Links to both files above. You could open this file in the browser to see the animated demo.
