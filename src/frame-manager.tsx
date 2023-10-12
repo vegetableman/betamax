@@ -11,7 +11,8 @@ window.chrome = {
   runtime: {
     getURL: (path) => {
       return `chrome-extension://${hostname}/${path}`
-    }
+    },
+    id: hostname
   }
 };
 
@@ -233,10 +234,10 @@ const App = () => {
           <div class="relative h-full">
             <div class="absolute"></div>
             <div class="absolute left-5 bottom-6 opacity-60 hover:opacity-100 z-10">
-              <div class="text-lg">⌨</div>
-              <div class="text-sm text-gray-400 pb-[2px]"><b>Shift + Delete</b> to delete frame. </div>
-              <div class="text-sm text-gray-400 pb-[2px]"><b>Ctrl + Shift + Delete</b> to delete all frames following the current one.</div>
-              <div class="text-sm text-gray-400"><b>Shift + Left Arrow/Right Arrow</b> to switch between frames without transition.</div>
+              <div class="text-lg text-gray-50">⌨</div>
+              <div class="text-sm text-gray-50 pb-[2px]"><b>Shift + Delete</b> to delete frame. </div>
+              <div class="text-sm text-gray-50 pb-[2px]"><b>Ctrl + Shift + Delete</b> to delete all frames following the current one.</div>
+              <div class="text-sm text-gray-50"><b>Shift + Left Arrow/Right Arrow</b> to switch between frames without transition.</div>
             </div>
             <button style={{display: currentImage() === 0 ? 'none': 'inline'}} class="absolute top-[45%] transform -translate-y-[50%] cursor-pointer left-0 text-gray-300 p-4 text-5xl z-10 hover:text-white" onClick={prevImage}>◂</button>
             <button style={{display: currentImage() === ss().length - 1 ? 'none': 'inline'}}  class="absolute top-[45%] transform -translate-y-[50%] cursor-pointer right-0 text-gray-300 p-4 text-5xl z-10 hover:text-white" onClick={nextImage}>▸</button>
@@ -247,10 +248,10 @@ const App = () => {
                   'position': currentImage() !== i() ? 'absolute': 'relative'
                 }} class={`absolute outline-none left-0 top-0 h-full w-full flex items-center justify-center transform translate-x-[0%] ${transitionEnabled() ? 'transition-transform duration-250 ease-in-out delay-0': ''}`}>
                   <img src={src} alt={`Image ${currentImage() + 1}`} />
-                  <div class="absolute text-xl left-[48%] bottom-6 text-gray-400">
+                  <div class="absolute text-lg left-[48%] bottom-6 text-gray-400">
                     {i() + 1} of {ss().length}
                   </div>
-                  <div class="absolute text-xl right-4 bottom-6 text-gray-400">
+                  <div class="absolute text-lg right-5 bottom-6 text-gray-400">
                     {id}
                   </div>
                 </div>
@@ -262,7 +263,7 @@ const App = () => {
         <div class="flex flex-col w-full">
           <div class="flex flex-col flex-1 items-center w-full py-[20px] border-b border-[#ccc]">
             <div class="flex items-center w-full relative justify-center">
-              <div class="relative flex items-center pt-2">
+              <div class="relative flex items-center pt-3">
                 <input disabled={generating()} class="absolute select-none h-12 z-10 text-transparent cursor-pointer outline-none w-full peer" type="file" accept=".zip" ref={fileInput} onchange={async (event) => {
                   const zipFileInput = event.target;
                   if (zipFileInput.files.length > 0) {
@@ -294,13 +295,13 @@ const App = () => {
                     }, 10);
                   }
                 }}/>
-                <button disabled={generating()} class="py-[10px] px-3 my-[10px] text-sm border-outset text-white bg-[#0349ff] peer-hover:bg-[#0944dd] border-[#0f328f] border-2" onclick={() => {
+                <button disabled={generating()} class="py-[10px] px-3 my-[10px] text-sm border-outset font-medium text-white bg-[#0349ff] peer-hover:bg-[#0944dd] border-[#0f328f] border-2" onclick={() => {
                   fileInput.click();
                 }}>
                   <span class="relative pr-2 top-[-2px]">📁</span>
                   <span>Select zip</span>
                 </button>
-                <div class="flex items-center px-1 w-fit max-w-[200px] h-[43px] border-2 border-[#333] text-[#666] text-sm border-l-0">
+                <div class="flex items-center px-2 w-fit max-w-[200px] h-[43px] border-2 border-[#777] text-[#333] text-sm border-l-0 rounded-br-sm rounded-tr-sm">
                   {fileName()}
                 </div>
               </div>
@@ -310,8 +311,8 @@ const App = () => {
             </div>
             {exampleFileName() && <div>Recently downloaded file name: <b style="font-weight: 600;">{exampleFileName()}</b></div>}
             <div class="items-center flex">
-              <span class="text-sm">Resize factor:</span> 
-              <select class="p-[10px] border-2 border-solid border-[#333] my-[10px] text-xs w-16 ml-1" onchange={(e) => {
+              <span class="text-sm pr-2 text-[#333]">Resize factor</span> 
+              <select class="p-[10px] border-2 border-solid border-[#777] text-[#555] rounded-sm my-[10px] text-xs w-16 ml-1 font-semibold cursor-pointer" onchange={(e) => {
                 const { value } = e.target;
                 value && setResizeFactor(parseFloat(value));
               }}>
@@ -321,11 +322,11 @@ const App = () => {
                 <option value="0.5">1/2</option>
               </select>
               <div class="relative group cursor-pointer">
-                <svg class="ml-2 hover:fill-[antiquewhite]" xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-info"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>
-                <span class="hidden group-hover:inline absolute bg-white p-1 w-48 b-[-50px] right-0 border border-[#ddd]">Set resize factor to scale images.</span>
+                <svg class="ml-2 text-[#777] fill-[antiquewhite]" xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-info"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>
+                <span class="hidden group-hover:inline absolute bg-[antiquewhite] p-1 w-[199px] b-[-50px] right-0 border border-[#777]">Set resize factor to scale images.</span>
               </div>
             </div>
-            <select class="p-[10px] border-2 border-solid border-[#333] my-[10px] text-xs" value={format()} onchange={(e) => {
+            <select class="p-[10px] border-2 border-solid border-[#777] text-[#555] my-[10px] text-xs rounded-sm font-semibold cursor-pointer" value={format()} onchange={(e) => {
               const { value } = e.target;
               value && setFormat(value);
             }}>
@@ -333,7 +334,7 @@ const App = () => {
               <option value="webp" selected>WEBP</option>
               <option value="png">PNG</option>
             </select>
-            <button style={{cursor: generating()? 'default': 'pointer'}} disabled={!ss()?.length} class="relative py-[10px] px-2 my-[10px] w-40 h-10 border-[#ef5527] bg-[#f46236] text-white text-sm border-outset border-2 disabled:opacity-70 disabled:cursor-default hover:not-disabled:bg-[#fb3a00]" onclick={generateAnimation}>
+            <button style={{cursor: generating()? 'default': 'pointer'}} disabled={!ss()?.length} class="relative py-[10px] px-2 my-[10px] w-40 h-10 border-[#ef5527] bg-[#f46236] text-white text-sm border-outset border-2 disabled:opacity-70 disabled:cursor-default hover:not-disabled:bg-[#fb3a00] font-medium" onclick={generateAnimation}>
               <div class="absolute left-4 top-2 z-20">Generate animation</div>
               {generating() ? 
               <div class="absolute left-0 top-0 w-full h-full bg-progress-pattern transition-all duration-300 ease animate-progress z-10"></div>: null}
@@ -374,7 +375,7 @@ const App = () => {
                     </div>
                   </div>
                   <div class="text-center h-full overflow-auto pb-12">
-                    <p class="text-sm p-3 text-left">Below are the generated files, you can download them individually or as zip below:</p>
+                    <p class="text-sm p-3 pb-5 text-left">Below are the generated files, you can download them individually or as zip below:</p>
                     <ul class="flex flex-col items-center relative">
                       <li>
                         <img src={URL.createObjectURL(packedImage())} class="object-cover w-24 h-24 cursor-pointer border border-transparent hover:border-[crimson]" onclick={() => {
@@ -383,7 +384,7 @@ const App = () => {
                       </li>
                       <li class="my-5">
                         <div class="flex items-center">
-                          <input type="text" class="bg-[#eee] text-sm p-1 rounded-sm border-[#ddd] border-[1]" ref={timelineInput} value={timeline()}/>
+                          <input type="text" class="bg-[#eee] text-sm p-1 rounded-sm border-[#777] border-[1]" ref={timelineInput} value={timeline()}/>
                           <button class="pl-1 transform scale-100 active:scale-90" onclick={async () => {
                             try {
                                 await navigator.clipboard.writeText(timelineInput.value);
@@ -404,17 +405,17 @@ const App = () => {
                       </li>
                       {showClipboardMsg() ? <li class="absolute bottom-0 right-3 text-[11px]">Copied to Clipboard!</li>: null}
                     </ul>
-                    <button class="py-[10px] px-5 mr-4 border-[#fd6900] bg-[#fb6800] text-white text-sm border-outset border-2 disabled:opacity-70 disabled:cursor-default hover:bg-[#fb3a00]" onclick={downloadZip}>
+                    <button class="py-[10px] px-5 mr-4 border-[#fd6900] bg-[#fb6800] text-white text-sm border-outset border-2 disabled:opacity-70 disabled:cursor-default hover:bg-[#fb3a00] font-medium" onclick={downloadZip}>
                       <span>Download as zip</span>
                     </button>
-                    <div class="py-3">Found it useful? <a target="_blank" class="underline text-[#f76600] font-medium" href="https://www.buymeacoffee.com/vigneshanand">buy me a donut</a> 🍩😊</div>
+                    <div class="py-3 text-[13px]">Found it useful? <a target="_blank" class="underline text-[#f76600] font-medium" href="https://www.buymeacoffee.com/vigneshanand">buy me a donut</a> 🍩😊</div>
                     <div class="px-3 pb-5">
                       <details ref={details} open={isDetailsOpen()} class="text-left" ontoggle={(e) => {
                         const isOpen = e.target instanceof HTMLDetailsElement && e.target.open;
                         setDetailsOpen(isOpen);
                         window.parent.postMessage({name: 'isDetailsOpen', isOpen}, "*");
                       }}>
-                        <summary class="py-2 cursor-pointer text-sm font-medium">
+                        <summary class="pt-5 pb-2 cursor-pointer text-sm font-medium">
                           Details on the zip and steps to use it:
                         </summary>
                         <div class="px-[10px] text-sm">
@@ -422,16 +423,16 @@ const App = () => {
                             The zip contains the following files:
                           </div>
                           <div class="pb-2">
-                            <pre class="inline">packed_image.webp (or .png)</pre>: An image that packs all the differences between frames.
+                            <pre class="inline">packed_image.webp ( or png)</pre>: An image that packs all the differences between frames.
                           </div>
                           <div class="pb-2">
                             <pre class="inline">timeline.json</pre>: Contains the timeline array with information on each of those differences for the animation to work.
                           </div>
                           <div class="pb-2">
-                            <pre class="inline">demo.html</pre>: Links to both files above. You could open this file in the browser to see the animated demo.
+                            <pre class="inline">demo.html</pre>: Has both  above. You could open this file in the browser to see the animated demo.
                           </div>
-                          <div class="bg-[#eee] border border-[#ddd] text-sm leading-5 px-2 py-2 rounded-md">
-                            To use it, simply copy the lines from <b>line 6</b> to <b>line 63</b> on the file <pre class="inline font-semibold">demo.html</pre> in the zip and paste/modify it in your code based on your needs.
+                          <div class="bg-[#eee] border border-[#ddd] text-sm px-2 py-2 rounded-md">
+                            To use it, simply copy the lines from <b>line 6</b> until the closing <pre class="inline">script</pre> tag in the file <pre class="inline font-semibold">demo.html</pre> in the zip and paste/modify it in your code based on your needs.
                           </div>
                         </div>
                       </details>
@@ -465,6 +466,38 @@ const styleContent = `
       mediumpurple
     );
     opacity: 0.75;
+  }
+  @font-face {
+    font-family: "BTM__Inter";
+    src: 
+        url("chrome-extension://${chrome.runtime.id}/src/assets/fonts/Inter-Regular.woff2")
+        format("woff2"),
+        url("chrome-extension://${chrome.runtime.id}/src/assets/fonts/Inter-Regular.woff")
+        format("woff");
+  }
+  
+  @font-face {
+    font-weight: 500;
+    font-family: "BTM__Inter";
+    src:
+        url("chrome-extension://${chrome.runtime.id}/src/assets/fonts/Inter-Medium.woff2")
+        format("woff2"),
+        url("chrome-extension://${chrome.runtime.id}/src/assets/fonts/Inter-Medium.woff")
+        format("woff");
+  }
+  
+  @font-face {
+    font-weight: 600;
+    font-family: "BTM__Inter";
+    src: 
+        url("chrome-extension://${chrome.runtime.id}/src/assets/fonts/Inter-SemiBold.woff2")
+        format("woff2"),
+        url("chrome-extension://${chrome.runtime.id}/src/assets/fonts/Inter-SemiBold.woff")
+        format("woff");
+  }
+
+  html, body {
+    font-family: "BTM__Inter", Helvetica, system-ui;
   }
 `
 

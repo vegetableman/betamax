@@ -21,6 +21,10 @@ const style = `
     --btm-countdown-background-color: #33333352;
     --btm-config-background-color: #333333e3;
   }
+  .btm_frame {
+    font-family: "BTM__Inter", Arial, Helvetica, sans-serif;
+    font-size: 13px;
+  }
   .btm_frame__inner {
     display: flex;
     flex-direction: column;
@@ -118,14 +122,20 @@ const style = `
     height: ${MIRROR_FRAME_HEIGHT}px;
     cursor: se-resize;
   }
+  .btm_title__timer-wrapper {
+    display: flex;
+    align-items: center;
+  }
   .btm_title__timer {
     position: absolute;
     left: 45%;
+    font-size: 13px;
     color: var(--btm-btn-color);
   }
   .btm_title__text {
     position: absolute;
     left: 45%;
+    font-size: 13px;
     color: var(--btm-btn-color);
   }
   .btm_title__text::after {
@@ -190,11 +200,20 @@ const style = `
   .btm_config__row--element {
     flex-direction: column;
   }
-  .btm_config__row__wrapper > input {
+  .btm_config__row__wrapper > input, .btm_config__row__wrapper > select {
     width: 100px;
+    font-size: 13px;
+    background: #3b3b3b;
+    border: 1px solid #858585;
+    color: #ffffff;
   }
   .btm_config__row__label {
     flex-basis: 230px;
+    font-size: 13px;
+  }
+  .btm_config__row__value {
+    padding-left: 2px; 
+    padding-top: 1px;
   }
   .btm_config__row--element > .btm_config__row__label {
     flex-basis: auto;
@@ -204,6 +223,7 @@ const style = `
     position: absolute;
     top: 0;
     right: 7px;
+    font-size: 13px;
     color: silver;
     cursor: pointer;
   }
@@ -219,6 +239,7 @@ const style = `
   }
   .btm_config__row__x {
     padding: 0 5px;
+    font-size: 13px;
   }
   .btm_bottom_bar {
     display: none;
@@ -324,7 +345,7 @@ customElement("btm-frame", {}, () => {
   const [isCancelled, setIsCancelled] = createSignal(false);
 
   const handleMouseDown = (event) => {
-    if (event.target.classList.contains('record-btn') || isRecording()) {
+    if (isRecording()) {
       return;
     }
     const { clientX, clientY } = event;
@@ -390,19 +411,26 @@ customElement("btm-frame", {}, () => {
     return`${formattedMinutes}:${formattedSeconds}`;
   }
 
-  function startCapture() {
+  function startCapture(e) {
+    e.preventDefault();
     setTime('00:00');
     setCountDown(3);
     setIsCancelled(false);
 
     async function captureElementScreenshots() {
+      let stream;
       // Request screen capture permission
-      const stream = await navigator.mediaDevices.getDisplayMedia({
-        audio: false,
-        video: {
-          displaySurface: 'monitor'
-        },
-      });
+      try {
+        stream = await navigator.mediaDevices.getDisplayMedia({
+          audio: false,
+          video: {
+            displaySurface: 'monitor'
+          },
+        });
+      }
+      catch {
+        return;
+      }
 
       setIsStarting(true);
       const i = setInterval(() => {
@@ -517,9 +545,14 @@ customElement("btm-frame", {}, () => {
           zip = new JSZip();
         });
       }
-    }
+    };
 
     captureElementScreenshots();
+  }
+
+  function cancelCapture() {
+    setIsCancelled(true);
+    document.dispatchEvent(stopEvent);
   }
 
   createEffect(() => {
@@ -530,6 +563,7 @@ customElement("btm-frame", {}, () => {
 
   onMount(async () => {
     document.addEventListener('start-capture', startCapture);
+    document.addEventListener('cancel-capture', cancelCapture);
     const data = await chrome.storage.sync.get(__BTM_FRAME_INTERVAL_KEY);
     if (data && data[__BTM_FRAME_INTERVAL_KEY]) {
       setFrameInterval(data[__BTM_FRAME_INTERVAL_KEY]);
@@ -538,11 +572,19 @@ customElement("btm-frame", {}, () => {
 
   onCleanup(() => {
     document.removeEventListener('start-capture', startCapture);
+    document.removeEventListener('cancel-capture', cancelCapture);
   });
 
   const selectElement = (value) => {
+    if (!value) {
+      return;
+    }
+    
     setSelectedEl(value);
     const el = document.querySelector(value);
+    if (!el) {
+      return;
+    }
     const rect = el.getBoundingClientRect();
     setElementOffset({
       x: rect.left - FRAME_HEIGHT,
@@ -579,22 +621,20 @@ customElement("btm-frame", {}, () => {
       <style>{style}</style>
       <div class="btm_frame__inner">
         <div class="btm_title_bar" onMouseDown={handleMouseDown}>
-          {!isRecording() ? <button title="Record (Alt + Shift + C)" class="btm_record-btn" onClick={startCapture}>
-            <span class="btm_icon">⬤</span>
+          {!isRecording() ? 
+            <button title="Record (Alt + Shift + R)" class="btm_record-btn" onClick={startCapture} onMouseDown={(e) => e.stopPropagation()}>
+            < span class="btm_icon">⬤</span>
             <span>Record</span>
           </button>: null}
           {isRecording() ? <button title="Stop (Alt + Shift + O)" class="btm_stop-btn" onClick={() => {
             document.dispatchEvent(stopEvent);
-          }}>
+          }} onMouseDown={(e) => e.stopPropagation()}>
             <span class="btm_icon">◼</span>
             <span>Stop</span>
           </button>: null}
           {isRecording() ?
-            <span>
-              <button title="Cancel" class="btm_title__cancel-btn"  onclick={() => {
-                setIsCancelled(true);
-                document.dispatchEvent(stopEvent);
-              }}>✖</button>
+            <span class="btm_title__timer-wrapper">
+              <button title="Cancel (Alt + Shift + C)" class="btm_title__cancel-btn"  onclick={cancelCapture} onMouseDown={(e) => e.stopPropagation()}>✖</button>
               <span class="btm_title__timer">
                 {time()}
               </span>
@@ -604,10 +644,10 @@ customElement("btm-frame", {}, () => {
           <div>
             <button title="Settings" class="btm_title__config-btn" disabled={isRecording()} onclick={() => {
               toggleConfig((c) => !c);
-            }}>⚙</button>
+            }} onMouseDown={(e) => e.stopPropagation()}>⚙</button>
             <button title="Close" class="btm_title__close-btn" disabled={isRecording()} onclick={() => {
               document.querySelector('btm-frame').remove();
-            }}>✖</button>
+            }} onMouseDown={(e) => e.stopPropagation()}>✖</button>
           </div>
         </div>
         {isStarting() ? <div class="btm_countdown" ref={overlay}>
@@ -646,7 +686,7 @@ customElement("btm-frame", {}, () => {
                   }
                 }}/>
               </span>
-              <span style="padding-left: 2px">{imageQuality()}</span>
+              <span class="btm_config__row__value">{imageQuality()}</span>
           </div>
           <div class="btm_config__row">
               <span class="btm_config__row__label">Frame size: </span>
@@ -801,12 +841,15 @@ function intervalTimer(callback, interval) {
 
 const stopEvent = new CustomEvent("stop-capture");
 const startEvent = new CustomEvent("start-capture");
+const cancelEvent = new CustomEvent("cancel-capture");
 
 chrome.runtime.onMessage.addListener(async (req) => {
   if (req.message === 'startCapture') {
     document.dispatchEvent(startEvent);
   } else if (req.message === 'stopCapture') {
     document.dispatchEvent(stopEvent);
+  } else if (req.message === 'cancelCapture') {
+    document.dispatchEvent(cancelEvent);
   } else if (req.message === 'viewFrame') {
     document.body.appendChild(document.createElement('btm-frame'));
   }

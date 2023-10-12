@@ -3,6 +3,10 @@ chrome.commands.onCommand.addListener(async (command) => {
     chrome.tabs.query({ active: true, currentWindow: true }, function(tabs) {
       chrome.tabs.sendMessage(tabs[0].id, { message: 'startCapture' });
     });
+  } else if (command === 'cancel_capture') {
+    chrome.tabs.query({ active: true, currentWindow: true }, function (tabs) {
+      chrome.tabs.sendMessage(tabs[0].id, { message: 'cancelCapture' });
+    });
   } else if (command === 'stop_capture') {
     chrome.tabs.query({ active: true, currentWindow: true }, function (tabs) {
       chrome.tabs.sendMessage(tabs[0].id, { message: 'stopCapture' });
@@ -26,5 +30,4 @@ chrome.runtime.onMessage.addListener(async (req, sender, res) => {
     });
     res(true)
   }
-})
-
+});

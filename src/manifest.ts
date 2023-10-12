@@ -23,12 +23,13 @@ const manifest = defineManifest(async () => ({
   content_scripts: [
     {
       matches: ["http://*/*", "https://*/*", "<all_urls>"],
+      css: ["src/pages/content/content.css"],
       js: ["src/pages/content/index.tsx"],
     },
   ],
   web_accessible_resources: [
     {
-      resources: ["assets/js/*.js", "assets/css/*.css", "assets/img/*", "src/pyodide.worker.js", 'src/pyodide/**'],
+      resources: ["src/assets/fonts/**", "src/pyodide.worker.js", 'src/pyodide/**'],
       matches: ["*://*/*"],
     },
   ],
@@ -44,7 +45,8 @@ const manifest = defineManifest(async () => ({
     "activeTab",
     "webRequest",
     "tabs",
-    "storage"
+    "storage",
+    "scripting"
   ],
   host_permissions: [
     "http://*/*",
@@ -53,10 +55,17 @@ const manifest = defineManifest(async () => ({
   commands: {
     "start_capture": {
       "suggested_key": {
+        "default": "Alt+Shift+R",
+        "mac": "Alt+Shift+R"
+      },
+      "description": "Start capture"
+    },
+    "cancel_capture": {
+      "suggested_key": {
         "default": "Alt+Shift+C",
         "mac": "Alt+Shift+C"
       },
-      "description": "Start capture"
+      "description": "Cancel capture"
     },
     "stop_capture": {
       "suggested_key": {

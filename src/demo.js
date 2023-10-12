@@ -1,6 +1,5 @@
 const DEMO_HTML = 
-  `
-    <!doctype html>
+  `<!doctype html>
     <html>
     <head>
     </head>

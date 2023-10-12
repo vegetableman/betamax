@@ -26,6 +26,10 @@ export default defineConfig({
       dest: outDir + '/src'
     },
     {
+      src: pagesDir + '/content/content.css',
+      dest: outDir + '/src/pages/content'
+    },
+    {
       src: root + '/demo.js',
       dest: outDir + '/src'
     },
