@@ -187,10 +187,12 @@ const style = `
     position: absolute;
     top: ${TITLE_BAR_HEIGHT}px;
     width: 100%;
+    padding-top: 10px;
     height: 400px;
     overflow: auto;
     background: var(--btm-config-background-color);
     color: var(--btm-btn-color);
+    box-sizing: border-box;
   }
   .btm_config__row {
     display: flex;
@@ -200,12 +202,17 @@ const style = `
   .btm_config__row--element {
     flex-direction: column;
   }
-  .btm_config__row__wrapper > input, .btm_config__row__wrapper > select {
+  .btm_config__row__wrapper > input[type="text"], 
+  .btm_config__row__wrapper > select {
     width: 100px;
+    padding: 3px;
     font-size: 13px;
     background: #3b3b3b;
     border: 1px solid #858585;
     color: #ffffff;
+  }
+  .btm_config__row__wrapper > input[type="range"] {
+    width: 100px;
   }
   .btm_config__row__label {
     flex-basis: 230px;
@@ -221,7 +228,7 @@ const style = `
   }
   .btm_config__close-btn {
     position: absolute;
-    top: 0;
+    top: 5px;
     right: 7px;
     font-size: 13px;
     color: silver;

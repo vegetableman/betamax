@@ -16,6 +16,18 @@ window.chrome = {
   }
 };
 
+
+// https://stackoverflow.com/a/71876238
+const copyToClipboard = (text) => {
+  const textArea = document.createElement("textarea"); 
+  textArea.value=text; 
+  document.body.appendChild(textArea); 
+  textArea.focus();
+  textArea.select(); 
+  document.execCommand('copy');
+  document.body.removeChild(textArea);
+};
+
 const logo = `
 ██████╗ ███████╗████████╗ █████╗ ███╗   ███╗ █████╗ ██╗  ██╗
 ██╔══██╗██╔════╝╚══██╔══╝██╔══██╗████╗ ████║██╔══██╗╚██╗██╔╝
@@ -312,7 +324,7 @@ const App = () => {
             {exampleFileName() && <div>Recently downloaded file name: <b style="font-weight: 600;">{exampleFileName()}</b></div>}
             <div class="items-center flex">
               <span class="text-sm pr-2 text-[#333]">Resize factor</span> 
-              <select class="p-[10px] border-2 border-solid border-[#777] text-[#555] rounded-sm my-[10px] text-xs w-16 ml-1 font-semibold cursor-pointer" onchange={(e) => {
+              <select class="p-[10px] border-2 border-solid border-[#777] text-[#555] rounded-sm my-[10px] text-xs w-16 ml-1 font-medium cursor-pointer" onchange={(e) => {
                 const { value } = e.target;
                 value && setResizeFactor(parseFloat(value));
               }}>
@@ -326,7 +338,7 @@ const App = () => {
                 <span class="hidden group-hover:inline absolute bg-[antiquewhite] p-1 w-[199px] b-[-50px] right-0 border border-[#777]">Set resize factor to scale images.</span>
               </div>
             </div>
-            <select class="p-[10px] border-2 border-solid border-[#777] text-[#555] my-[10px] text-xs rounded-sm font-semibold cursor-pointer" value={format()} onchange={(e) => {
+            <select class="p-[10px] border-2 border-solid border-[#777] text-[#555] my-[10px] text-xs rounded-sm font-medium cursor-pointer" value={format()} onchange={(e) => {
               const { value } = e.target;
               value && setFormat(value);
             }}>
@@ -387,13 +399,13 @@ const App = () => {
                           <input type="text" class="bg-[#eee] text-sm p-1 rounded-sm border-[#777] border-[1]" ref={timelineInput} value={timeline()}/>
                           <button class="pl-1 transform scale-100 active:scale-90" onclick={async () => {
                             try {
-                                await navigator.clipboard.writeText(timelineInput.value);
-                                toggleClipboardMsg(true);
-                                setTimeout(() => {
-                                  toggleClipboardMsg(false);
-                                }, 1000);
+                              copyToClipboard(timelineInput.value);
+                              toggleClipboardMsg(true);
+                              setTimeout(() => {
+                                toggleClipboardMsg(false);
+                              }, 1000);
                             } catch (error) {
-                                console.error('Failed to copy: ', error);
+                              console.error('Failed to copy: ', error);
                             }
                           }}>
                             <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-clipboard">
@@ -429,7 +441,7 @@ const App = () => {
                             <pre class="inline">timeline.json</pre>: Contains the timeline array with information on each of those differences for the animation to work.
                           </div>
                           <div class="pb-2">
-                            <pre class="inline">demo.html</pre>: Has both  above. You could open this file in the browser to see the animated demo.
+                            <pre class="inline">demo.html</pre>: To view the animated demo, open this file in the browser.
                           </div>
                           <div class="bg-[#eee] border border-[#ddd] text-sm px-2 py-2 rounded-md">
                             To use it, simply copy the lines from <b>line 6</b> until the closing <pre class="inline">script</pre> tag in the file <pre class="inline font-semibold">demo.html</pre> in the zip and paste/modify it in your code based on your needs.
