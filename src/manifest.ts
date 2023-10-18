@@ -53,26 +53,17 @@ const manifest = defineManifest(async () => ({
     "https://*/*"
   ],
   commands: {
-    "start_capture": {
+    "toggle_capture": {
       "suggested_key": {
-        "default": "Alt+Shift+R",
-        "mac": "Alt+Shift+R"
+        "default": "Alt+Shift+R"
       },
-      "description": "Start capture"
+      "description": "Toggle capture"
     },
     "cancel_capture": {
       "suggested_key": {
-        "default": "Alt+Shift+C",
-        "mac": "Alt+Shift+C"
+        "default": "Alt+Shift+C"
       },
       "description": "Cancel capture"
-    },
-    "stop_capture": {
-      "suggested_key": {
-        "default": "Alt+Shift+O",
-        "mac": "Alt+Shift+O"
-      },
-      "description": "Stop capture"
     }
   }
 }));

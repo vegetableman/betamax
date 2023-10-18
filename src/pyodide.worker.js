@@ -81,7 +81,7 @@ async function processImages(data) {
                         self.available_space[row:row+h] -= w
                         self.num_used_rows = max(self.num_used_rows, row + h)
                         return row, col
-        raise RuntimeError()
+        raise RuntimeError("Allocation error")
 
     def find_matching_rect(bitmap, num_used_rows, packed, src, sx, sy, w, h):
       template = src[sy:sy+h, sx:sx+w]
@@ -202,7 +202,7 @@ async function processImages(data) {
           dy, dx = allocator.allocate(w, h)
           allocs[i][j] = (dy, dx)
 
-        packed[dy:dy+h, dx:dx+w] = src[sy:sy+h, sx:sx+w]
+          packed[dy:dy+h, dx:dx+w] = src[sy:sy+h, sx:sx+w]
         rc = rc + 1
 
       packed = packed[0:allocator.num_used_rows]
@@ -254,7 +254,7 @@ async function processImages(data) {
   const image = new Blob([buffer], { type: `image/${format}` });
 
   self.postMessage({ done: true, payload: {image, timeline} });
-  pyodide.runPython('import sys; sys.modules.clear()');
+  pyodide.runPython('import sys; import gc; sys.modules.clear(); gc.collect();');
 }
 
 onmessage = async function (e) {

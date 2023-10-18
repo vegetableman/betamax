@@ -50,12 +50,12 @@ class Pyodide {
         
           this.worker = new Worker(workerUrl);
           this.worker.onmessage = e => {
-            this._status[e.data.msg] = ['done', e]
+            this._status[e.data.msg] = ['done', e];
             this.loaded = true;
             resolve(true);
           };
           this.worker.onerror = e => {
-            this._status[e.data.msg] = ['error', e]
+            this._status[e.message] = ['error', e];
           };
           this._dispatch({msg: 'load', payload: {
             pyodide: chrome.runtime.getURL('src/pyodide/pyodide.js'),

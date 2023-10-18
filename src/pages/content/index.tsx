@@ -14,7 +14,7 @@ const style = `
     --btm-record-btn-hover-background-color: #f15120;
     --btm-record-btn-border-color: #ef5527;
     --btm-stop-btn-background-color: red;
-    --btm-stop-btn-hover-background-color: #c90808;
+    --btm-stop-btn-hover-background-color: #ed1212;
     --btm-btn-color: #fff;
     --btm-mirror-background-color: #333;
     --btm-dimension-background-color: #333;
@@ -42,10 +42,15 @@ const style = `
   .btm_record-btn, .btm_stop-btn {
     display: flex;
     align-items: center;
-    padding: 3px 7px 5px 7px;
+    padding: 2px 8px 4px 8px;
+    min-height: 20px;
     background: var(--btm-record-btn-background-color);
-    border-color: var(--btm-record-btn-border-color);
     color: var(--btm-btn-color);
+    box-sizing: content-box;
+    border-width: 2px;
+    border-color: var(--btm-record-btn-border-color);
+    border-style: outset;
+    z-index: 2;
   }
   .btm_record-btn:hover {
     background: var(--btm-record-btn-hover-background-color);
@@ -53,16 +58,20 @@ const style = `
   }
   .btm_stop-btn {
     background: var(--btm-stop-btn-background-color);
+    min-width: 45px;
   }
   .btm_stop-btn:hover {
     background: var(--btm-stop-btn-hover-background-color);
     cursor: pointer;
   }
-  .btm_record-btn > .btm_icon, .btm_stop-btn > .btm_icon {
-    position: relative;
-    top: -1px;
-    padding-right: 5px;
-    font-size: 10px;
+  .btm_record__text {
+    padding-left: 5px;
+    font-family: 'BTM__Inter';
+    font-weight: 500;
+    font-size: 13px;
+  }
+  .btm_stop-btn .btm_record__text {
+    font-weight: 600;
   }
   .btm_mirror > .btm_w {
     position: absolute;
@@ -116,21 +125,47 @@ const style = `
   }
   .btm_mirror > .btm_se {
     position: absolute;
-    right: 0;
-    bottom: calc(-355px - ${TITLE_BAR_HEIGHT}px);
-    width: ${MIRROR_FRAME_HEIGHT}px;
-    height: ${MIRROR_FRAME_HEIGHT}px;
+    right: -15px;
+    bottom: calc(-355px - ${TITLE_BAR_HEIGHT + 10}px);
+    width: ${MIRROR_FRAME_HEIGHT + 10}px;
+    height: ${MIRROR_FRAME_HEIGHT + 10}px;
     cursor: se-resize;
+  }
+  .btm_mirror > .btm_sw {
+    position: absolute;
+    left: -15px;
+    bottom: calc(-355px - ${TITLE_BAR_HEIGHT + 10}px);
+    width: ${MIRROR_FRAME_HEIGHT + 10}px;
+    height: ${MIRROR_FRAME_HEIGHT + 10}px;
+    cursor: sw-resize;
+  }
+  .btm_mirror > .btm_ne {
+    position: absolute;
+    right: -${MIRROR_FRAME_HEIGHT}px;
+    top: 0;
+    width: ${MIRROR_FRAME_HEIGHT + 10}px;
+    height: ${MIRROR_FRAME_HEIGHT}px;
+    cursor: ne-resize;
+    z-index: 1;
+  }
+  .btm_mirror > .btm_nw {
+    position: absolute;
+    left: -${MIRROR_FRAME_HEIGHT}px;
+    top: 0;
+    width: ${MIRROR_FRAME_HEIGHT + 10}px;
+    height: ${MIRROR_FRAME_HEIGHT + 10}px;
+    cursor: nw-resize;
+    z-index: 1;
   }
   .btm_title__timer-wrapper {
     display: flex;
     align-items: center;
+    margin-left: -15px;
   }
   .btm_title__timer {
-    position: absolute;
-    left: 45%;
     font-size: 13px;
     color: var(--btm-btn-color);
+    min-width: 40px;
   }
   .btm_title__text {
     position: absolute;
@@ -180,7 +215,7 @@ const style = `
   }
   .btm_title__cancel-btn {
     position: relative;
-    left: -40px;
+    left: -5px;
     color: red;
   }
   .btm_config {
@@ -211,9 +246,6 @@ const style = `
     border: 1px solid #858585;
     color: #ffffff;
   }
-  .btm_config__row__wrapper > input[type="range"] {
-    width: 100px;
-  }
   .btm_config__row__label {
     flex-basis: 230px;
     font-size: 13px;
@@ -239,7 +271,8 @@ const style = `
   }
   .btm_dimension {
     position: absolute;
-    bottom: 2px;
+    bottom: 10px;
+    left: 20px;
     padding: 0 5px;
     background: var(--btm-dimension-background-color);
     color: var(--btm-btn-color);
@@ -262,6 +295,27 @@ const style = `
     background: var(--btm-title-background-color);
     cursor: move;
   }
+  .btm_config__row--mode {
+    display: flex;
+    align-items: center;
+  }
+  .btm_config__mode-input {
+    margin: 0;
+    cursor: pointer;
+  }
+  .btm_config__mode-label {
+    padding-left: 5px;
+    cursor: pointer;
+  }
+  .btm_config__mode-label--auto {
+    padding-right: 10px;
+  }
+  .btm_config__interval-input {
+    width: 50px;
+  }
+  .btm_config__interval-input:disabled {
+    opacity: 0.5;
+  }
 `;
 
 function Resizer(props) {
@@ -271,11 +325,12 @@ function Resizer(props) {
   const [dir, setDir] = createSignal('');
   const [startWidth, setStartWidth] = createSignal(0);
   const [startLeft, setStartLeft] = createSignal(0);
-  const [resizing, setResizing] = createSignal(false);
+  const [isResizing, setResizing] = createSignal(false);
 
   function initResize(e) {
     if (props.disabled) return;
     e.preventDefault();
+    e.stopPropagation();
     setMousePosition({x: e.clientX, y: e.clientY});
     
     setStartWidth(frameRef.offsetWidth);
@@ -287,20 +342,18 @@ function Resizer(props) {
   }
 
   function resize(e) {
-    if (!resizing()) return;
+    if (!isResizing()) return;
     const { x, y } = mousePosition();
     const { clientX, clientY } = e;
     const deltaX = clientX - x;
     const deltaY = clientY - y;
     if (dir() === 'e' || dir() === 'w') {
       onResize(dir(), startWidth(), deltaX, deltaY, startLeft());
-    }
-    else if (dir() === 's' || dir() === 'n') {
+    } else if (dir() === 's' || dir() === 'n') {
       onResize(dir(), startWidth(), deltaX, deltaY);
       setMousePosition({x: clientX, y: clientY});
-    }
-    else if (dir() === 'se') {
-      onResize(dir(), startWidth(), deltaX, deltaY);
+    } else if (dir() === 'se' || dir() === 'sw' || dir() === 'ne' || dir() === 'nw') {
+      onResize(dir(), startWidth(), deltaX, deltaY, startLeft());
       setMousePosition({x: mousePosition().x, y: clientY});
     }
   }
@@ -310,7 +363,7 @@ function Resizer(props) {
     onResizeEnd();
   }
 
-  c().forEach(el => {
+  [].slice.call(c()).forEach(el => {
     el.addEventListener('mousedown', initResize);
   });
 
@@ -333,36 +386,41 @@ customElement("btm-frame", {}, () => {
   let e;
   let w;
   let se;
-  let bottomBar;
+  let sw;
+  let ne;
+  let nw;
+  let bottomTitleBar;
   const [mousePosition, setMousePosition] = createSignal({ x: 0, y: 0 });
+  const [windowWidth, setWindowWidth] = createSignal(window.innerWidth);
+  const [windowHeight, setWindowHeight] = createSignal(window.innerHeight);
   const [elementOffset, setElementOffset] = createSignal({ x: window.innerWidth/2 - MIN_WIDTH, y: window.innerHeight/2 - MIN_WIDTH });
   const [isMouseDown, setMouseDown] = createSignal(false);
   const [isRecording, setIsRecording] = createSignal(false);
   const [isStarting, setIsStarting] = createSignal(false);
   const [showConfig, toggleConfig] = createSignal(false);
   const [isResizing, setIsResizing] = createSignal(false);
-  const [showBottomBar, toggleBottomBar] = createSignal(false);
+  const [showBottomTitleBar, toggleBottomTitleBar] = createSignal(false);
+  const [frameCaptureMode, setFrameCaptureMode] = createSignal("auto");
   const [frameInterval, setFrameInterval] = createSignal(DEFAULT_FRAME_INTERVAL);
   const [selectedEl, setSelectedEl] = createSignal("");
   const [dimension, setDimension] = createSignal({width: 400, height: 400 + FRAME_HEIGHT});
   const [time, setTime] = createSignal('00:00');
   const [countDown, setCountDown] = createSignal(3);
-  const [imageQuality, setImageQuality] = createSignal(1);
-  const [imageFormat, setImageFormat] = createSignal("webp");
+  const [imageFormat, _setImageFormat] = createSignal("png");
   const [isCancelled, setIsCancelled] = createSignal(false);
 
   const handleMouseDown = (event) => {
-    if (isRecording()) {
+    if (isRecording() || isResizing()) {
       return;
     }
     const { clientX, clientY } = event;
+    setMouseDown(true);
     setMousePosition({x: clientX, y: clientY});
-    const rect = frame.getBoundingClientRect()
+    const rect = frame.getBoundingClientRect();
     setElementOffset({
       x: rect.left,
       y: rect.top,
     });
-    setMouseDown(true);
     document.addEventListener('mousemove', handleMouseMove);
     document.addEventListener('mouseup', handleMouseUp);
     document.documentElement.style.userSelect = 'none';
@@ -370,7 +428,7 @@ customElement("btm-frame", {}, () => {
   };
 
   const handleMouseMove = (event) => {
-    if (!isMouseDown() || isRecording()) return;
+    if (!isMouseDown() || isRecording() || isResizing()) return;
 
     const { clientX, clientY } = event;
     const { x, y } = mousePosition();
@@ -379,10 +437,10 @@ customElement("btm-frame", {}, () => {
     setMousePosition({x: clientX, y: clientY});
     setElementOffset({x: (elementOffset().x + deltaX), y: (elementOffset().y + deltaY)});
     if (frame.getBoundingClientRect().top < -25) {
-      bottomBar.style.bottom = `${parseInt(getComputedStyle(s).bottom) - (TITLE_BAR_HEIGHT - 3 * FRAME_HEIGHT)}px`;
-      toggleBottomBar(true);
+      bottomTitleBar.style.bottom = -dimension().height -  TITLE_BAR_HEIGHT + 'px';
+      toggleBottomTitleBar(true);
     } else {
-      toggleBottomBar(false);
+      toggleBottomTitleBar(false);
     }
   };
 
@@ -409,7 +467,7 @@ customElement("btm-frame", {}, () => {
   }
 
   let totalSeconds = 0;
-  function updateTimer() {
+  function updateDisplayTime() {
     const minutes = Math.floor(totalSeconds / 60);
     const seconds = totalSeconds % 60;
     const formattedMinutes = formatTime(minutes);
@@ -418,11 +476,17 @@ customElement("btm-frame", {}, () => {
     return`${formattedMinutes}:${formattedSeconds}`;
   }
 
-  function startCapture(e) {
-    e.preventDefault();
+  function toggleCapture() {
+    if (isRecording()) {
+      stopCapture();
+    } else {
+      startCapture();
+    }
+  }
+
+  function startCapture() {
     setTime('00:00');
     setCountDown(3);
-    setIsCancelled(false);
 
     async function captureElementScreenshots() {
       let stream;
@@ -458,7 +522,7 @@ customElement("btm-frame", {}, () => {
       setIsRecording(true);
 
       const timerId = setInterval(() => {
-        setTime(updateTimer());
+        setTime(updateDisplayTime());
       }, 1000);
     
       // Wait for the video to load metadata
@@ -467,58 +531,84 @@ customElement("btm-frame", {}, () => {
       });
     
       let times = [];
-      let completions = [];
       let r = frame.getBoundingClientRect();
+      // substract the offset of 2 pixels
+      const dw = screen.width - (window.innerWidth * window.devicePixelRatio) - 2;
+      const dt = screen.height - (window.innerHeight * window.devicePixelRatio);
       r = {
-        top: Math.round(r.top + (screen.height - window.innerHeight)), 
-        bottom: r.bottom, 
-        width: r.width, 
-        left: Math.round(r.left), 
-        height: s.offsetTop - r.height - 1
-      }
+        top: (r.bottom * window.devicePixelRatio) - (TITLE_BAR_HEIGHT + FRAME_HEIGHT * window.devicePixelRatio) + dt,//TITLE_BAR_HEIGHT + dt, //(Math.round(r.top) * window.devicePixelRatio) + dt,
+        width: window.devicePixelRatio * r.width, 
+        left: (window.devicePixelRatio * Math.round(r.left)) + dw,
+        height: Math.round(s.offsetTop * window.devicePixelRatio) - Math.round(r.height * window.devicePixelRatio) + FRAME_HEIGHT
+      };
 
       const canvas = document.createElement('canvas');
-      canvas.width = r.width;
-      canvas.height = r.height;
-
+      canvas.width =  r.width;
+      canvas.height =  r.height;
       const context = canvas.getContext('2d', { alpha: false, willReadFrequently: true });
-      let isStarted = false;
 
+      let completions = 0;
       function postCapture() {
-        if (completions.length === times.length && !isRecording() && !isCancelled()) {
+        if (completions === times.length && !isRecording() && !isCancelled()) {
           processScreenshots();
           times = [];
-          completions = [];
+          completions = 0;
+        } else if (isCancelled()) {
+          times = [];
+          completions = 0;
+          setIsStarting(false);
+          setIsCancelled(false);
+          zip = new JSZip();
         }
       }
 
-      const cancelTimer = intervalTimer(() => {
-        let t = Math.round(videoElement.currentTime * 1000);
+      let isStarted = false;
+      let paintCount = 0;
+      let startTime = 0.0;
+      const processCapture = (now, metadata) => {
+        if (!isRecording()) {
+          return;
+        }
+        now = now || performance.now().toFixed(3);
+        if (startTime === 0.0) {
+          startTime = now;
+        }
+        const time = metadata ? metadata.mediaTime : videoElement.currentTime;
+        let t = Math.round((time - 2) * 1000);
         times.push(t);
         if (!isStarted) {
           isStarted = true;
-          setTime(updateTimer());
+          setTime(updateDisplayTime());
         }
         context.clearRect(0, 0, canvas.width, canvas.height);
         context.drawImage(videoElement, -r.left, -r.top);
 
+        const elapsed = (now - startTime) / 1000.0;
+        const fps = (++paintCount / elapsed).toFixed(3);
+        console.log('fps:', fps);
+
         canvas.toBlob((blob) => {
-          if (isCancelled()) {
-            times = [];
-            completions = [];
-            return;
-          }
-          completions.push(t);
+          completions++;
           zip.file(`${t}.${imageFormat()}`, blob);
           postCapture();
-        }, `image/${imageFormat()}`, imageQuality());
-     
-      }, frameInterval());
+        }, `image/${imageFormat()}`);
+
+        if (frameCaptureMode() === 'auto') {
+          videoElement.requestVideoFrameCallback(processCapture);
+        }
+      }
+      
+      let cancelTimer;
+      if (frameCaptureMode() === 'manual') {
+        cancelTimer = intervalTimer(processCapture, frameInterval());
+      } else {
+        videoElement.requestVideoFrameCallback(processCapture);
+      }
 
       stopCapture = async function() {
         clearInterval(timerId);
         setIsRecording(false);
-        cancelTimer();
+        cancelTimer?.();
         totalSeconds = 0;
         stream.getTracks().forEach(track => track.stop());
         postCapture();
@@ -537,7 +627,7 @@ customElement("btm-frame", {}, () => {
           link.rel = 'noopener'
           link.href = URL.createObjectURL(content);
           let loc = parse(document.location.href);
-          let fileName = `${loc.domainWithoutSuffix || 'images'}_${Date.now()}.zip`;
+          let fileName = `betamax_${loc.domainWithoutSuffix}_${new Date().toLocaleString('sv-SE', { hour12: false}).replaceAll(/\-|:/g, '').replace(' ', '_')}.zip`;
           link.download = fileName;
           setTimeout(function () { URL.revokeObjectURL(link.href) }, 4E4); // 40s
           setTimeout(function () { link.click() }, 0);
@@ -568,9 +658,19 @@ customElement("btm-frame", {}, () => {
     }
   });
 
+  function onResize() {
+    const { innerWidth, innerHeight} = window;
+    const deltaX = innerWidth - windowWidth();
+    const deltaY = innerHeight - windowHeight();
+    setElementOffset({x: elementOffset().x + deltaX, y: elementOffset().y + deltaY});
+    setWindowWidth(innerWidth);
+    setWindowHeight(innerHeight);
+  }
+
   onMount(async () => {
-    document.addEventListener('start-capture', startCapture);
+    document.addEventListener('toggle-capture', toggleCapture);
     document.addEventListener('cancel-capture', cancelCapture);
+    window.addEventListener('resize', onResize);
     const data = await chrome.storage.sync.get(__BTM_FRAME_INTERVAL_KEY);
     if (data && data[__BTM_FRAME_INTERVAL_KEY]) {
       setFrameInterval(data[__BTM_FRAME_INTERVAL_KEY]);
@@ -578,8 +678,9 @@ customElement("btm-frame", {}, () => {
   });
 
   onCleanup(() => {
-    document.removeEventListener('start-capture', startCapture);
+    document.removeEventListener('toggle-capture', toggleCapture);
     document.removeEventListener('cancel-capture', cancelCapture);
+    window.removeEventListener('resize', onResize);
   });
 
   const selectElement = (value) => {
@@ -597,20 +698,60 @@ customElement("btm-frame", {}, () => {
       x: rect.left - FRAME_HEIGHT,
       y: rect.top - TITLE_BAR_HEIGHT - FRAME_HEIGHT,
     });
-    const delta = dimension().height - (rect.height + MIRROR_FRAME_HEIGHT);
-    setDimension({width: rect.width + (2 * FRAME_HEIGHT), height: rect.height + MIRROR_FRAME_HEIGHT});
-    s.style.bottom = `${parseInt(getComputedStyle(s).bottom) + delta}px`;
-    se.style.bottom = `${parseInt(getComputedStyle(se).bottom) + delta}px`;
+    const h = rect.height + MIRROR_FRAME_HEIGHT;
+    setDimension({width: rect.width + (2 * FRAME_HEIGHT), height: h});
+    setBottomFramePosition(h);
     if (s.getBoundingClientRect().top > window.innerHeight) {
-      s.style.bottom = `${parseInt(getComputedStyle(s).bottom) + FRAME_HEIGHT}px`;
-      se.style.bottom = `${parseInt(getComputedStyle(se).bottom) + FRAME_HEIGHT}px`;
+      setBottomFramePosition(FRAME_HEIGHT);
       setDimension({width: dimension().width, height: dimension().height - FRAME_HEIGHT});
     } else if (frame.getBoundingClientRect().top < -25) {
-      bottomBar.style.bottom = `${parseInt(getComputedStyle(s).bottom) - (TITLE_BAR_HEIGHT - 3 * FRAME_HEIGHT)}px`;
-      toggleBottomBar(true);
+      bottomTitleBar.style.bottom =  -dimension().height -  TITLE_BAR_HEIGHT + 'px';
+      toggleBottomTitleBar(true);
     }
     toggleConfig(false);
   }
+
+  function setBottomFramePosition(h) {
+    se.style.bottom = -h - (MIRROR_FRAME_HEIGHT - FRAME_HEIGHT) + 10 + 'px';
+    sw.style.bottom = -h - (MIRROR_FRAME_HEIGHT - FRAME_HEIGHT) + 10 + 'px';
+    s.style.bottom = -h - (MIRROR_FRAME_HEIGHT - FRAME_HEIGHT) + 'px';
+  }
+
+  const controls = () => { 
+    return (<> 
+      {!isRecording() ? 
+        <button title="Record (Alt + Shift + R)" class="btm_record-btn" onClick={(e) => {
+          e.preventDefault();
+          startCapture();
+        }} onMouseDown={(e) => e.stopPropagation()}>
+        <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-circle"><circle cx="12" cy="12" r="10"></circle></svg>
+        <span class="btm_record__text">Record</span>
+      </button>: null}
+      {isRecording() ? <button title="Stop (Alt + Shift + R)" class="btm_stop-btn" onClick={() => {
+        document.dispatchEvent(stopEvent);
+      }} onMouseDown={(e) => e.stopPropagation()}>
+        <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-square"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect></svg>
+        <span class="btm_record__text">Stop</span>
+      </button>: null}
+      {isRecording() ?
+        <span class="btm_title__timer-wrapper">
+          <button title="Cancel (Alt + Shift + C)" class="btm_title__cancel-btn"  onclick={cancelCapture} onMouseDown={(e) => e.stopPropagation()}>✖</button>
+          <span class="btm_title__timer">
+            {time()}
+          </span>
+        </span>: 
+      null}
+      {isStarting() ? <span class="btm_title__text">Starting</span>: null}
+      <div style="z-index: 2;">
+        <button title="Settings" class="btm_title__config-btn" disabled={isRecording()} onclick={() => {
+          toggleConfig((c) => !c);
+        }} onMouseDown={(e) => e.stopPropagation()}>⚙</button>
+        <button title="Close" class="btm_title__close-btn" disabled={isRecording()} onclick={() => {
+          document.querySelector('btm-frame').remove();
+        }} onMouseDown={(e) => e.stopPropagation()}>✖</button>
+      </div>
+  </>);
+  };
 
   return (
     <div
@@ -628,72 +769,36 @@ customElement("btm-frame", {}, () => {
       <style>{style}</style>
       <div class="btm_frame__inner">
         <div class="btm_title_bar" onMouseDown={handleMouseDown}>
-          {!isRecording() ? 
-            <button title="Record (Alt + Shift + R)" class="btm_record-btn" onClick={startCapture} onMouseDown={(e) => e.stopPropagation()}>
-            < span class="btm_icon">⬤</span>
-            <span>Record</span>
-          </button>: null}
-          {isRecording() ? <button title="Stop (Alt + Shift + O)" class="btm_stop-btn" onClick={() => {
-            document.dispatchEvent(stopEvent);
-          }} onMouseDown={(e) => e.stopPropagation()}>
-            <span class="btm_icon">◼</span>
-            <span>Stop</span>
-          </button>: null}
-          {isRecording() ?
-            <span class="btm_title__timer-wrapper">
-              <button title="Cancel (Alt + Shift + C)" class="btm_title__cancel-btn"  onclick={cancelCapture} onMouseDown={(e) => e.stopPropagation()}>✖</button>
-              <span class="btm_title__timer">
-                {time()}
-              </span>
-            </span>: 
-          null}
-          {isStarting() ? <span class="btm_title__text">Starting</span>: null}
-          <div>
-            <button title="Settings" class="btm_title__config-btn" disabled={isRecording()} onclick={() => {
-              toggleConfig((c) => !c);
-            }} onMouseDown={(e) => e.stopPropagation()}>⚙</button>
-            <button title="Close" class="btm_title__close-btn" disabled={isRecording()} onclick={() => {
-              document.querySelector('btm-frame').remove();
-            }} onMouseDown={(e) => e.stopPropagation()}>✖</button>
-          </div>
+          {controls()}
         </div>
         {isStarting() ? <div class="btm_countdown" ref={overlay}>
           <span>{countDown()}</span>
         </div>: null}
         {showConfig() ? <div class="btm_config" style={{height: dimension().height + 'px'}}>
           <div class="btm_config__row">
-              <span class="btm_config__row__label">Frame Interval (ms): </span>
+              <span class="btm_config__row__label">Frame capture mode: </span>
+              <div class="btm_config__row__wrapper btm_config__row--mode">
+                <input class="btm_config__mode-input" onchange={() => {
+                  setFrameCaptureMode('auto');
+                }}  type="radio" id="auto" name="mode" value="auto" checked={frameCaptureMode() === 'auto'}/>
+                <label class="btm_config__mode-label btm_config__mode-label--auto" for="auto">Auto</label>
+
+                <input class="btm_config__mode-input" onchange={() => {
+                  setFrameCaptureMode('manual');
+                }} type="radio" id="manual" name="mode" value="manual" checked={frameCaptureMode() === 'manual'}/>
+                <label class="btm_config__mode-label" for="manual">Manual</label>
+              </div>
+          </div>
+          <div class="btm_config__row">
+              <span class="btm_config__row__label">Frame interval (ms): </span>
               <span class="btm_config__row__wrapper">
-                <input type="text" style="width: 50px;" value={`${frameInterval()}`} onchange={(e) => {
+                <input class="btm_config__interval-input" disabled={frameCaptureMode() === 'auto'} type="text" style="width: 50px;" value={`${frameInterval()}`} onchange={(e) => {
                   let {value} = e.target;
                   let v = parseInt(value);
                   !Number.isNaN(v) && v > 0 && setFrameInterval(v);
                   chrome.storage.sync.set({[__BTM_FRAME_INTERVAL_KEY]: v});
                 }}/>
               </span>
-          </div>
-          <div class="btm_config__row">
-              <span class="btm_config__row__label">Image format: </span>
-              <span class="btm_config__row__wrapper">
-                <select value={`${imageFormat()}`} onchange={(e) => {
-                  let {value} = e.target;
-                  setImageFormat(value);
-                }}>
-                  <option value="webp">WebP</option>
-                  <option value="png">Png</option>
-                </select>
-              </span>
-          </div>
-          <div class="btm_config__row">
-              <span class="btm_config__row__label">Image quality (for WebP): </span>
-              <span class="btm_config__row__wrapper">
-                <input type="range" step="0.1" max="1" min="0" value={`${imageQuality()}`} oninput={(e) => {
-                  if (e.target instanceof HTMLInputElement) {
-                   setImageQuality(parseFloat(e.target.value));
-                  }
-                }}/>
-              </span>
-              <span class="btm_config__row__value">{imageQuality()}</span>
           </div>
           <div class="btm_config__row">
               <span class="btm_config__row__label">Frame size: </span>
@@ -708,8 +813,7 @@ customElement("btm-frame", {}, () => {
                      let {value} = e.target;
                      let v = parseInt(value) + FRAME_HEIGHT;
                      const h = dimension().height - v;
-                     s.style.bottom = `${parseInt(getComputedStyle(s).bottom) + h}px`;
-                     se.style.bottom = `${parseInt(getComputedStyle(se).bottom) + h}px`;
+                     setBottomFramePosition(h);
                      !Number.isNaN(v) && v > 0 && setDimension({width: dimension().width, height: v});
                   }}/>
               </span>
@@ -738,30 +842,48 @@ customElement("btm-frame", {}, () => {
               const w = width + deltaX;
               if (w < MIN_WIDTH) return;
               setDimension({width: w, height: dimension().height});
-            }
-            else if (dir === 'w') {
+            } else if (dir === 'w' || dir === 'sw') {
               const w = width - deltaX;
-              if (w < MIN_WIDTH) return;
-              frame.style.left = `${startLeft + deltaX}px`;
-              setDimension({width: w, height: dimension().height});
-            }
-            else if (dir === 's' || dir === 'se') {
-              const h = dimension().height + deltaY;
-               if (h < MIN_HEIGHT || width + deltaX < MIN_WIDTH) return;
-              s.style.bottom = `${Math.min(parseInt(getComputedStyle(s).bottom) - deltaY, -55)}px`;
-              se.style.bottom = `${Math.min(parseInt(getComputedStyle(se).bottom) - deltaY, -40)}px`;
-              setDimension({width: dir === 'se' ? width + deltaX: dimension().width, height: h});
-              if (showBottomBar()) {
-                bottomBar.style.bottom = `${parseInt(getComputedStyle(s).bottom) - (TITLE_BAR_HEIGHT - 3 * FRAME_HEIGHT)}px`;
+              if (w < MIN_WIDTH) {
+                return;
               }
-            }
-            else if (dir === 'n') {
+              setElementOffset({x: startLeft + deltaX, y: elementOffset().y});
+              setDimension({width: w, height: dimension().height});
+              if (dir === 'sw') {
+                const h = dimension().height + deltaY;
+                setDimension({width: dir === 'se' ? width + deltaX: dimension().width, height: h});
+                setBottomFramePosition(h);
+                if (showBottomTitleBar()) {
+                  bottomTitleBar.style.bottom = -dimension().height -  TITLE_BAR_HEIGHT + 'px';
+                }
+              }
+            } else if (dir === 's' || dir === 'se') {
+              const h = dimension().height + deltaY;
+              if (h < MIN_HEIGHT || ( dir === 'se' && width + deltaX < MIN_WIDTH)) {
+                return;
+              }
+              setDimension({width: dir === 'se' ? width + deltaX: dimension().width, height: h});
+              setBottomFramePosition(h);
+              if (showBottomTitleBar()) {
+                bottomTitleBar.style.bottom = -dimension().height -  TITLE_BAR_HEIGHT + 'px';
+              }
+            } else if (dir === 'n' || dir === 'ne' ||  dir === 'nw') {
               const h = dimension().height - deltaY;
               if (h < MIN_HEIGHT) return;
-              frame.style.top = `${parseInt(getComputedStyle(frame).top) + deltaY}px`;
-              setDimension({width: dimension().width, height: h});
-              s.style.bottom = `${parseInt(getComputedStyle(s).bottom) + deltaY}px`;
-              se.style.bottom = `${parseInt(getComputedStyle(se).bottom) + deltaY}px`;
+              if (dir === 'ne' || dir === 'nw') {
+                const w = dir === 'ne' ? width + deltaX: width - deltaX;
+                if (w < MIN_WIDTH) return;
+                if (dir === 'nw') {
+                  setElementOffset({y: elementOffset().y, x: startLeft + deltaX});
+                }
+                setElementOffset({y: elementOffset().y + deltaY, x: elementOffset().x});
+                setDimension({width: w, height: h});
+                setBottomFramePosition(h);
+              } else {
+                setElementOffset({y: elementOffset().y + deltaY, x: elementOffset().x});
+                setDimension({width: dimension().width, height: h});
+                setBottomFramePosition(h);
+              }
             }
           }} onResizeEnd={() => {
             setIsResizing(false);
@@ -769,6 +891,8 @@ customElement("btm-frame", {}, () => {
             <div class="btm_n" data-dir="n" ref={n}>
               <div></div>
             </div>
+            <div class="btm_ne" data-dir="ne" ref={ne}></div>
+            <div class="btm_nw" data-dir="nw" ref={nw}></div>
             <div class="btm_w" data-dir="w" ref={w} style={{height: dimension().height + TITLE_BAR_HEIGHT + 'px'}}>
               <div></div>
             </div>
@@ -779,41 +903,16 @@ customElement("btm-frame", {}, () => {
               <div></div>
             </div>
             <div class="btm_se" data-dir="se" ref={se}>
-              {isResizing() ? <div ref={dimLabel} class="btm_dimension" style={{right: `${(dimension().width - dimLabel.getBoundingClientRect().width) - 5}px`}}>{dimension().width}x{dimension().height - FRAME_HEIGHT}</div>: null}
+            </div>
+            <div class="btm_sw" data-dir="sw" ref={sw}>
+              <div style={{position: "relative", width: "100%", height: "100%"}}>
+                {isResizing() ? <div ref={dimLabel} class="btm_dimension">{dimension().width}x{dimension().height - FRAME_HEIGHT}</div>: null}
+              </div>
             </div>
           </Resizer>
         </div>
-        <div style={{display: showBottomBar()? 'flex': 'none'}} class="btm_bottom_bar" ref={bottomBar} onMouseDown={handleMouseDown}>
-          {!isRecording() ? <button class="btm_record-btn" onClick={startCapture}>
-            <span class="btm_icon">⬤</span>
-            <span>Record</span>
-          </button>: null}
-          {isRecording() ? <button class="btm_stop-btn" onClick={() => {
-            document.dispatchEvent(stopEvent);
-          }}>
-            <span class="btm_icon">◼</span>
-            <span>Stop</span>
-          </button>: null}
-          {isRecording() ?
-            <span>
-              <button title="Cancel" class="btm_title__cancel-btn"  onclick={() => {
-                setIsCancelled(true);
-                document.dispatchEvent(stopEvent);
-              }}>✖</button>
-              <span class="btm_title__timer">
-                {time()}
-              </span>
-            </span>: 
-          null}
-          {isStarting() ? <span class="btm_title__text">Starting</span>: null}
-          <div style="padding-left: 15px;">
-            <button class="btm_title__config-btn" disabled={isRecording()} onclick={() => {
-              toggleConfig((c) => !c);
-            }}>⚙</button>
-            <button class="btm_title__close-btn" disabled={isRecording()} onclick={() => {
-              document.querySelector('btm-frame').remove();
-            }}>✖</button>
-          </div>
+        <div style={{display: showBottomTitleBar()? 'flex': 'none'}} class="btm_bottom_bar" ref={bottomTitleBar} onMouseDown={handleMouseDown}>
+          {controls()}
         </div>
       </div>
     </div>
@@ -847,14 +946,12 @@ function intervalTimer(callback, interval) {
 }
 
 const stopEvent = new CustomEvent("stop-capture");
-const startEvent = new CustomEvent("start-capture");
+const toggleCaptureEvent = new CustomEvent("toggle-capture");
 const cancelEvent = new CustomEvent("cancel-capture");
 
 chrome.runtime.onMessage.addListener(async (req) => {
-  if (req.message === 'startCapture') {
-    document.dispatchEvent(startEvent);
-  } else if (req.message === 'stopCapture') {
-    document.dispatchEvent(stopEvent);
+  if (req.message === 'toggleCapture') {
+    document.dispatchEvent(toggleCaptureEvent);
   } else if (req.message === 'cancelCapture') {
     document.dispatchEvent(cancelEvent);
   } else if (req.message === 'viewFrame') {

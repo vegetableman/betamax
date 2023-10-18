@@ -1,15 +1,11 @@
 chrome.commands.onCommand.addListener(async (command) => {
-  if (command === 'start_capture') {
+  if (command === 'toggle_capture') {
     chrome.tabs.query({ active: true, currentWindow: true }, function(tabs) {
-      chrome.tabs.sendMessage(tabs[0].id, { message: 'startCapture' });
+      chrome.tabs.sendMessage(tabs[0].id, { message: 'toggleCapture' });
     });
   } else if (command === 'cancel_capture') {
     chrome.tabs.query({ active: true, currentWindow: true }, function (tabs) {
       chrome.tabs.sendMessage(tabs[0].id, { message: 'cancelCapture' });
-    });
-  } else if (command === 'stop_capture') {
-    chrome.tabs.query({ active: true, currentWindow: true }, function (tabs) {
-      chrome.tabs.sendMessage(tabs[0].id, { message: 'stopCapture' });
     });
   }
 });

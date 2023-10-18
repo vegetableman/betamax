@@ -38,8 +38,8 @@ const logo = `
 `;
 
 let IS_PYODIDE_LOADED = false;
-const delay_scale = 0.9
-let timer = null
+const delay_scale = 0.7;
+let timer = null;
 
 function animate(img, timeline, canvas)
 {
@@ -83,7 +83,7 @@ const App = () => {
   const [ss, setScreenshots] = createSignal([]);
   const [times, setTimes] = createSignal([]);
   const [format, setFormat] = createSignal('webp');
-  const [fileName, setFileName] = createSignal('No file choosen');
+  const [fileName, setFileName] = createSignal(null);
   const [exampleFileName, setExampleFileName] = createSignal(null);
   const [currentImage, setCurrentImage] = createSignal(0);
   const [messages, setMessages] = createSignal([]);
@@ -137,10 +137,8 @@ const App = () => {
         } else if (message.includes("Error generating the result:")) {
           setMessages([...messages(), message]);
           toggleError({line: messages().length - 1});
-          console.log('error muah----');
         } else if (err()) {
           setMessages([...messages(), message]);
-          console.log('err():', err(), messages());
           setIsGenerating(false);
           terminatePyodide();
         } else {
@@ -167,7 +165,7 @@ const App = () => {
     zip.file(`packed_image.${format()}`, packedImage());
     zip.file('demo.html', DEMO_HTML.replace('__TIMELINE__PLACEHOLDER__', timeline()).replace('__EXTENSION__', format()));
     const blob = await zip.generateAsync({type: 'blob'});
-    window.parent.postMessage({name: 'downloadFile', extension: 'zip', blob, file: `anim_${fileName()}`}, "*");
+    window.parent.postMessage({name: 'downloadFile', extension: 'zip', blob, file: `anim_${fileName()}`}, '*');
   }
 
   const terminatePyodide = () => {
@@ -179,7 +177,6 @@ const App = () => {
     window.addEventListener('message', function(event) {
       if ( event.data instanceof Object) {
         setExampleFileName(event.data.fileName);
-        setFormat(event.data.format);
         setDetailsOpen(event.data.isDetailsOpen);
       }
     });
@@ -218,6 +215,7 @@ const App = () => {
         gallery.focus();
       }, 10);
     } else if (e.shiftKey && e.key === 'Delete') {
+      const lastIndex = ss().length - 1;
       setScreenshots((ss) => {
         let ss_ = [...ss];
         ss_.splice(currentImage(), 1);
@@ -230,6 +228,9 @@ const App = () => {
       });
       setTimeout(() => {
         gallery.focus();
+        if (currentImage() === lastIndex) {
+          prevImage();
+        }
       }, 10);
     } else if (e.key === 'ArrowRight') {
       toggleTransition(true);
@@ -241,7 +242,7 @@ const App = () => {
   }}>
     <div class="flex h-full">
       <pre class="absolute left-[25px] top-[25px] text-[mediumpurple] text-[3px] leading-[unset]">{logo}</pre>
-      <div class="flex-1 bg-zinc-800 h-full" ref={gallery}>
+      <div class="flex-1 bg-zinc-800 h-full" tabindex="0" ref={gallery}>
         {ss().length ?
           <div class="relative h-full">
             <div class="absolute"></div>
@@ -313,15 +314,15 @@ const App = () => {
                   <span class="relative pr-2 top-[-2px]">📁</span>
                   <span>Select zip</span>
                 </button>
-                <div class="flex items-center px-2 w-fit max-w-[200px] h-[43px] border-2 border-[#777] text-[#333] text-sm border-l-0 rounded-br-sm rounded-tr-sm">
-                  {fileName()}
+                <div class="flex items-center px-2 w-fit max-w-[200px] h-[43px] border-2 border-[#777] text-[#333] text-[13px] leading-[1.3] border-l-0 rounded-br-sm rounded-tr-sm break-all">
+                  {fileName() ? `${fileName()}.zip`: 'No file choosen'}
                 </div>
               </div>
               <div class="absolute top-[-10px] right-[20px] text-sm cursor-pointer underline hover:opacity-70" onclick={() => {
                 aboutDialog.showModal();
               }}>About</div>
             </div>
-            {exampleFileName() && <div>Recently downloaded file name: <b style="font-weight: 600;">{exampleFileName()}</b></div>}
+            {exampleFileName() && <div class="text-center max-w-[90%] break-all">Recently downloaded file name: <b style="font-weight: 600;">{exampleFileName()}</b></div>}
             <div class="items-center flex">
               <span class="text-sm pr-2 text-[#333]">Resize factor</span> 
               <select class="p-[10px] border-2 border-solid border-[#777] text-[#555] rounded-sm my-[10px] text-xs w-16 ml-1 font-medium cursor-pointer" onchange={(e) => {
@@ -391,7 +392,7 @@ const App = () => {
                     <ul class="flex flex-col items-center relative">
                       <li>
                         <img src={URL.createObjectURL(packedImage())} class="object-cover w-24 h-24 cursor-pointer border border-transparent hover:border-[crimson]" onclick={() => {
-                          window.parent.postMessage({name: 'downloadFile', extension: format(), blob: packedImage(), file: fileName()}, "*");
+                          window.parent.postMessage({name: 'downloadFile', extension: format(), blob: packedImage(), file: fileName()}, '*');
                         }}/>
                       </li>
                       <li class="my-5">
@@ -420,12 +421,14 @@ const App = () => {
                     <button class="py-[10px] px-5 mr-4 border-[#fd6900] bg-[#fb6800] text-white text-sm border-outset border-2 disabled:opacity-70 disabled:cursor-default hover:bg-[#fb3a00] font-medium" onclick={downloadZip}>
                       <span>Download as zip</span>
                     </button>
-                    <div class="py-3 text-[13px]">Found it useful? <a target="_blank" class="underline text-[#f76600] font-medium" href="https://www.buymeacoffee.com/vigneshanand">buy me a donut</a> 🍩😊</div>
+                    <div class="py-3 text-[13px]">Found it useful? <a target="_blank" class="underline text-[#f76600] font-medium cursor-pointer" onclick={() => {
+                       window.parent.postMessage({name: 'coffee'}, '*');
+                    }}>buy me a donut</a> 🍩😊</div>
                     <div class="px-3 pb-5">
                       <details ref={details} open={isDetailsOpen()} class="text-left" ontoggle={(e) => {
                         const isOpen = e.target instanceof HTMLDetailsElement && e.target.open;
                         setDetailsOpen(isOpen);
-                        window.parent.postMessage({name: 'isDetailsOpen', isOpen}, "*");
+                        window.parent.postMessage({name: 'isDetailsOpen', isOpen}, '*');
                       }}>
                         <summary class="pt-5 pb-2 cursor-pointer text-sm font-medium">
                           Details on the zip and steps to use it:
