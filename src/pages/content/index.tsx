@@ -717,7 +717,7 @@ customElement("btm-frame", {}, () => {
   function setBottomFramePosition(h: number, frameHeight = 0) {
     se.style.bottom = -h - frameHeight + 'px';
     sw.style.bottom = -h - frameHeight + 'px';
-    s.style.bottom = -h - (frameHeight ? frameHeight + FRAME_SIZE : MIRROR_FRAME_HEIGHT) + FRAME_SIZE + 'px';
+    s.style.bottom = -h - (frameHeight ? frameHeight : MIRROR_FRAME_HEIGHT) + FRAME_SIZE + 'px';
   }
 
   const controls = () => { 
@@ -857,7 +857,7 @@ customElement("btm-frame", {}, () => {
                 setDimension({width: dir === 'se' ? width + deltaX: dimension().width, height: h});
                 if (showBottomTitleBar()) {
                   bottomTitleBar.style.bottom = -dimension().height -  TITLE_BAR_HEIGHT + 'px';
-                  setBottomFramePosition(h, TITLE_BAR_HEIGHT);
+                  setBottomFramePosition(h, TITLE_BAR_HEIGHT + 10);
                 } else {
                   setBottomFramePosition(h);
                 }
@@ -870,7 +870,7 @@ customElement("btm-frame", {}, () => {
               setDimension({width: dir === 'se' ? width + deltaX: dimension().width, height: h});
               if (showBottomTitleBar()) {
                 bottomTitleBar.style.bottom = -dimension().height -  TITLE_BAR_HEIGHT + 'px';
-                setBottomFramePosition(h, TITLE_BAR_HEIGHT);
+                setBottomFramePosition(h, TITLE_BAR_HEIGHT + 10);
               } else {
                 setBottomFramePosition(h);
               }
@@ -912,7 +912,7 @@ customElement("btm-frame", {}, () => {
             </div>
             <div class="btm_sw" data-dir="sw" ref={sw}>
               {isResizing() ? <div style={{position: "relative", width: "100%", height: "100%"}}>
-                <div ref={dimLabel} style={{bottom: showBottomTitleBar() ? `${TITLE_BAR_HEIGHT + FRAME_SIZE}px`: 0}} class="btm_dimension">{dimension().width}x{dimension().height - FRAME_SIZE}</div>
+                <div ref={dimLabel} style={{bottom: showBottomTitleBar() ? `${TITLE_BAR_HEIGHT + 15}px`: '10px'}} class="btm_dimension">{dimension().width}x{dimension().height - FRAME_SIZE}</div>
               </div>: null}
             </div>
           </Resizer>
