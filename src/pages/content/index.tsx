@@ -107,6 +107,7 @@ const style = `
     height: ${MIRROR_FRAME_HEIGHT}px;
     width: 100%;
     cursor: s-resize;
+    z-index: 2;
   }
   .btm_mirror > .btm_s > div {
     background: var(--btm-mirror-background-color);
@@ -130,6 +131,7 @@ const style = `
     width: ${MIRROR_FRAME_HEIGHT + 10}px;
     height: ${MIRROR_FRAME_HEIGHT + 10}px;
     cursor: se-resize;
+    z-index: 2;
   }
   .btm_mirror > .btm_sw {
     position: absolute;
@@ -138,6 +140,7 @@ const style = `
     width: ${MIRROR_FRAME_HEIGHT + 10}px;
     height: ${MIRROR_FRAME_HEIGHT + 10}px;
     cursor: sw-resize;
+    z-index: 2;
   }
   .btm_mirror > .btm_ne {
     position: absolute;
@@ -373,7 +376,7 @@ function Resizer(props) {
 const DEFAULT_FRAME_INTERVAL = 16;
 const MIN_WIDTH = 200;
 const MIN_HEIGHT = 45;
-const FRAME_HEIGHT = 5;
+const FRAME_SIZE = 5;
 const __BTM_FRAME_INTERVAL_KEY = '__btm_frame_interval';
 let zip = new JSZip();
 
@@ -403,7 +406,7 @@ customElement("btm-frame", {}, () => {
   const [frameCaptureMode, setFrameCaptureMode] = createSignal("auto");
   const [frameInterval, setFrameInterval] = createSignal(DEFAULT_FRAME_INTERVAL);
   const [selectedEl, setSelectedEl] = createSignal("");
-  const [dimension, setDimension] = createSignal({width: 400, height: 400 + FRAME_HEIGHT});
+  const [dimension, setDimension] = createSignal({width: 400, height: 400 + FRAME_SIZE});
   const [time, setTime] = createSignal('00:00');
   const [countDown, setCountDown] = createSignal(3);
   const [imageFormat, _setImageFormat] = createSignal("png");
@@ -437,10 +440,12 @@ customElement("btm-frame", {}, () => {
     setMousePosition({x: clientX, y: clientY});
     setElementOffset({x: (elementOffset().x + deltaX), y: (elementOffset().y + deltaY)});
     if (frame.getBoundingClientRect().top < -25) {
-      bottomTitleBar.style.bottom = -dimension().height -  TITLE_BAR_HEIGHT + 'px';
+      bottomTitleBar.style.bottom = -dimension().height - TITLE_BAR_HEIGHT + FRAME_SIZE + 'px';
       toggleBottomTitleBar(true);
-    } else {
+      setBottomFramePosition(dimension().height, TITLE_BAR_HEIGHT);
+    } else if(showBottomTitleBar()) {
       toggleBottomTitleBar(false);
+      setBottomFramePosition(dimension().height);
     }
   };
 
@@ -536,10 +541,10 @@ customElement("btm-frame", {}, () => {
       const dw = screen.width - (window.innerWidth * window.devicePixelRatio) - 2;
       const dt = screen.height - (window.innerHeight * window.devicePixelRatio);
       r = {
-        top: (r.bottom * window.devicePixelRatio) - (TITLE_BAR_HEIGHT + FRAME_HEIGHT * window.devicePixelRatio) + dt,//TITLE_BAR_HEIGHT + dt, //(Math.round(r.top) * window.devicePixelRatio) + dt,
-        width: window.devicePixelRatio * r.width, 
+        top: (r.bottom * window.devicePixelRatio) - (TITLE_BAR_HEIGHT + FRAME_SIZE * window.devicePixelRatio) + dt,//TITLE_BAR_HEIGHT + dt, //(Math.round(r.top) * window.devicePixelRatio) + dt,
+        width: window.devicePixelRatio * dimension().width + FRAME_SIZE, 
         left: (window.devicePixelRatio * Math.round(r.left)) + dw,
-        height: Math.round(s.offsetTop * window.devicePixelRatio) - Math.round(r.height * window.devicePixelRatio) + FRAME_HEIGHT
+        height: window.devicePixelRatio * dimension().height
       };
 
       const canvas = document.createElement('canvas');
@@ -654,7 +659,7 @@ customElement("btm-frame", {}, () => {
 
   createEffect(() => {
     if (isStarting() && overlay) {
-      overlay.style.height = parseInt(w.style.height) - TITLE_BAR_HEIGHT - FRAME_HEIGHT + 'px';
+      overlay.style.height = parseInt(w.style.height) - TITLE_BAR_HEIGHT - FRAME_SIZE + 'px';
     }
   });
 
@@ -694,27 +699,25 @@ customElement("btm-frame", {}, () => {
       return;
     }
     const rect = el.getBoundingClientRect();
+    const selectionOffset = 5;
     setElementOffset({
-      x: rect.left - FRAME_HEIGHT,
-      y: rect.top - TITLE_BAR_HEIGHT - FRAME_HEIGHT,
+      x: rect.left - selectionOffset,
+      y: rect.top - TITLE_BAR_HEIGHT - selectionOffset,
     });
     const h = rect.height + MIRROR_FRAME_HEIGHT;
-    setDimension({width: rect.width + (2 * FRAME_HEIGHT), height: h});
+    setDimension({width: rect.width + (2 * selectionOffset), height: h});
     setBottomFramePosition(h);
-    if (s.getBoundingClientRect().top > window.innerHeight) {
-      setBottomFramePosition(FRAME_HEIGHT);
-      setDimension({width: dimension().width, height: dimension().height - FRAME_HEIGHT});
-    } else if (frame.getBoundingClientRect().top < -25) {
+    if (frame.getBoundingClientRect().top < -25) {
       bottomTitleBar.style.bottom =  -dimension().height -  TITLE_BAR_HEIGHT + 'px';
       toggleBottomTitleBar(true);
     }
     toggleConfig(false);
   }
 
-  function setBottomFramePosition(h) {
-    se.style.bottom = -h - (MIRROR_FRAME_HEIGHT - FRAME_HEIGHT) + 10 + 'px';
-    sw.style.bottom = -h - (MIRROR_FRAME_HEIGHT - FRAME_HEIGHT) + 10 + 'px';
-    s.style.bottom = -h - (MIRROR_FRAME_HEIGHT - FRAME_HEIGHT) + 'px';
+  function setBottomFramePosition(h: number, frameHeight = 0) {
+    se.style.bottom = -h - frameHeight + 'px';
+    sw.style.bottom = -h - frameHeight + 'px';
+    s.style.bottom = -h - (frameHeight ? frameHeight + FRAME_SIZE : MIRROR_FRAME_HEIGHT) + FRAME_SIZE + 'px';
   }
 
   const controls = () => { 
@@ -809,9 +812,9 @@ customElement("btm-frame", {}, () => {
                     !Number.isNaN(v) && v > 0 && setDimension({width: v, height: dimension().height});
                   }}/>
                   <span class="btm_config__row__x">X</span>
-                  <input type="text" style="width: 50px;" value={dimension().height - FRAME_HEIGHT} onchange={(e) => {
+                  <input type="text" style="width: 50px;" value={dimension().height - FRAME_SIZE} onchange={(e) => {
                      let {value} = e.target;
-                     let v = parseInt(value) + FRAME_HEIGHT;
+                     let v = parseInt(value) + FRAME_SIZE;
                      const h = dimension().height - v;
                      setBottomFramePosition(h);
                      !Number.isNaN(v) && v > 0 && setDimension({width: dimension().width, height: v});
@@ -852,9 +855,11 @@ customElement("btm-frame", {}, () => {
               if (dir === 'sw') {
                 const h = dimension().height + deltaY;
                 setDimension({width: dir === 'se' ? width + deltaX: dimension().width, height: h});
-                setBottomFramePosition(h);
                 if (showBottomTitleBar()) {
                   bottomTitleBar.style.bottom = -dimension().height -  TITLE_BAR_HEIGHT + 'px';
+                  setBottomFramePosition(h, TITLE_BAR_HEIGHT);
+                } else {
+                  setBottomFramePosition(h);
                 }
               }
             } else if (dir === 's' || dir === 'se') {
@@ -863,9 +868,11 @@ customElement("btm-frame", {}, () => {
                 return;
               }
               setDimension({width: dir === 'se' ? width + deltaX: dimension().width, height: h});
-              setBottomFramePosition(h);
               if (showBottomTitleBar()) {
                 bottomTitleBar.style.bottom = -dimension().height -  TITLE_BAR_HEIGHT + 'px';
+                setBottomFramePosition(h, TITLE_BAR_HEIGHT);
+              } else {
+                setBottomFramePosition(h);
               }
             } else if (dir === 'n' || dir === 'ne' ||  dir === 'nw') {
               const h = dimension().height - deltaY;
@@ -878,12 +885,11 @@ customElement("btm-frame", {}, () => {
                 }
                 setElementOffset({y: elementOffset().y + deltaY, x: elementOffset().x});
                 setDimension({width: w, height: h});
-                setBottomFramePosition(h);
               } else {
                 setElementOffset({y: elementOffset().y + deltaY, x: elementOffset().x});
                 setDimension({width: dimension().width, height: h});
-                setBottomFramePosition(h);
               }
+              setBottomFramePosition(h);
             }
           }} onResizeEnd={() => {
             setIsResizing(false);
@@ -905,9 +911,9 @@ customElement("btm-frame", {}, () => {
             <div class="btm_se" data-dir="se" ref={se}>
             </div>
             <div class="btm_sw" data-dir="sw" ref={sw}>
-              <div style={{position: "relative", width: "100%", height: "100%"}}>
-                {isResizing() ? <div ref={dimLabel} class="btm_dimension">{dimension().width}x{dimension().height - FRAME_HEIGHT}</div>: null}
-              </div>
+              {isResizing() ? <div style={{position: "relative", width: "100%", height: "100%"}}>
+                <div ref={dimLabel} style={{bottom: showBottomTitleBar() ? `${TITLE_BAR_HEIGHT + FRAME_SIZE}px`: 0}} class="btm_dimension">{dimension().width}x{dimension().height - FRAME_SIZE}</div>
+              </div>: null}
             </div>
           </Resizer>
         </div>
