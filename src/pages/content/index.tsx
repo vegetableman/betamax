@@ -430,6 +430,14 @@ customElement("btm-frame", {}, () => {
     document.documentElement.style.cursor = 'move';
   };
 
+  const setupBottomTitleBar = () => {
+    if (frame.getBoundingClientRect().top < -25) {
+      toggleBottomTitleBar(true);
+    } else if(showBottomTitleBar()) {
+      toggleBottomTitleBar(false);
+    }
+  }
+
   const handleMouseMove = (event) => {
     if (!isMouseDown() || isRecording() || isResizing()) return;
 
@@ -439,14 +447,7 @@ customElement("btm-frame", {}, () => {
     const deltaY = clientY - y;
     setMousePosition({x: clientX, y: clientY});
     setElementOffset({x: (elementOffset().x + deltaX), y: (elementOffset().y + deltaY)});
-    if (frame.getBoundingClientRect().top < -25) {
-      bottomTitleBar.style.bottom = -dimension().height - TITLE_BAR_HEIGHT + FRAME_SIZE + 'px';
-      toggleBottomTitleBar(true);
-      setBottomFramePosition(dimension().height, TITLE_BAR_HEIGHT);
-    } else if(showBottomTitleBar()) {
-      toggleBottomTitleBar(false);
-      setBottomFramePosition(dimension().height);
-    }
+    setupBottomTitleBar();
   };
 
   const handleMouseUp = () => {
@@ -670,6 +671,7 @@ customElement("btm-frame", {}, () => {
     setElementOffset({x: elementOffset().x + deltaX, y: elementOffset().y + deltaY});
     setWindowWidth(innerWidth);
     setWindowHeight(innerHeight);
+    setupBottomTitleBar();
   }
 
   onMount(async () => {
@@ -706,18 +708,8 @@ customElement("btm-frame", {}, () => {
     });
     const h = rect.height + MIRROR_FRAME_HEIGHT;
     setDimension({width: rect.width + (2 * selectionOffset), height: h});
-    setBottomFramePosition(h);
-    if (frame.getBoundingClientRect().top < -25) {
-      bottomTitleBar.style.bottom =  -dimension().height -  TITLE_BAR_HEIGHT + 'px';
-      toggleBottomTitleBar(true);
-    }
     toggleConfig(false);
-  }
-
-  function setBottomFramePosition(h: number, frameHeight = 0) {
-    se.style.bottom = -h - frameHeight + 'px';
-    sw.style.bottom = -h - frameHeight + 'px';
-    s.style.bottom = -h - (frameHeight ? frameHeight : MIRROR_FRAME_HEIGHT) + FRAME_SIZE + 'px';
+    setupBottomTitleBar();
   }
 
   const controls = () => { 
@@ -816,7 +808,6 @@ customElement("btm-frame", {}, () => {
                      let {value} = e.target;
                      let v = parseInt(value) + FRAME_SIZE;
                      const h = dimension().height - v;
-                     setBottomFramePosition(h);
                      !Number.isNaN(v) && v > 0 && setDimension({width: dimension().width, height: v});
                   }}/>
               </span>
@@ -855,12 +846,6 @@ customElement("btm-frame", {}, () => {
               if (dir === 'sw') {
                 const h = dimension().height + deltaY;
                 setDimension({width: dir === 'se' ? width + deltaX: dimension().width, height: h});
-                if (showBottomTitleBar()) {
-                  bottomTitleBar.style.bottom = -dimension().height -  TITLE_BAR_HEIGHT + 'px';
-                  setBottomFramePosition(h, TITLE_BAR_HEIGHT + 10);
-                } else {
-                  setBottomFramePosition(h);
-                }
               }
             } else if (dir === 's' || dir === 'se') {
               const h = dimension().height + deltaY;
@@ -868,12 +853,6 @@ customElement("btm-frame", {}, () => {
                 return;
               }
               setDimension({width: dir === 'se' ? width + deltaX: dimension().width, height: h});
-              if (showBottomTitleBar()) {
-                bottomTitleBar.style.bottom = -dimension().height -  TITLE_BAR_HEIGHT + 'px';
-                setBottomFramePosition(h, TITLE_BAR_HEIGHT + 10);
-              } else {
-                setBottomFramePosition(h);
-              }
             } else if (dir === 'n' || dir === 'ne' ||  dir === 'nw') {
               const h = dimension().height - deltaY;
               if (h < MIN_HEIGHT) return;
@@ -889,7 +868,6 @@ customElement("btm-frame", {}, () => {
                 setElementOffset({y: elementOffset().y + deltaY, x: elementOffset().x});
                 setDimension({width: dimension().width, height: h});
               }
-              setBottomFramePosition(h);
             }
           }} onResizeEnd={() => {
             setIsResizing(false);
@@ -905,19 +883,19 @@ customElement("btm-frame", {}, () => {
             <div class="btm_e" data-dir="e" ref={e} style={{height: dimension().height + TITLE_BAR_HEIGHT + 'px'}}>
               <div></div>
             </div>
-            <div class="btm_s" data-dir="s" ref={s}>
+            <div class="btm_s" data-dir="s" ref={s} style={{bottom: -dimension().height - (showBottomTitleBar() ? TITLE_BAR_HEIGHT + 10 : MIRROR_FRAME_HEIGHT) + FRAME_SIZE + 'px', height: showBottomTitleBar() ? '10px': '15px'}}>
               <div></div>
             </div>
-            <div class="btm_se" data-dir="se" ref={se}>
+            <div class="btm_se" data-dir="se" ref={se} style={{bottom: -dimension().height - (showBottomTitleBar() ? TITLE_BAR_HEIGHT + 10: 0) + 'px'}}>
             </div>
-            <div class="btm_sw" data-dir="sw" ref={sw}>
+            <div class="btm_sw" data-dir="sw" ref={sw} style={{bottom: -dimension().height - (showBottomTitleBar() ? TITLE_BAR_HEIGHT + 10: 0) + 'px'}}>
               {isResizing() ? <div style={{position: "relative", width: "100%", height: "100%"}}>
                 <div ref={dimLabel} style={{bottom: showBottomTitleBar() ? `${TITLE_BAR_HEIGHT + 15}px`: '10px'}} class="btm_dimension">{dimension().width}x{dimension().height - FRAME_SIZE}</div>
               </div>: null}
             </div>
           </Resizer>
         </div>
-        <div style={{display: showBottomTitleBar()? 'flex': 'none'}} class="btm_bottom_bar" ref={bottomTitleBar} onMouseDown={handleMouseDown}>
+        <div style={{display: showBottomTitleBar() ? 'flex': 'none', bottom: -dimension().height - TITLE_BAR_HEIGHT + 'px'}} class="btm_bottom_bar" ref={bottomTitleBar} onMouseDown={handleMouseDown}>
           {controls()}
         </div>
       </div>
