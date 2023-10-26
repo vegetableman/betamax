@@ -1,0 +1,28 @@
+@font-face {
+  font-family: "BTM__Inter";
+  src: 
+      url("chrome-extension://__MSG_@@extension_id__/src/assets/fonts/Inter-Regular.woff2")
+      format("woff2"),
+      url("chrome-extension://__MSG_@@extension_id__/src/assets/fonts/Inter-Regular.woff")
+      format("woff");
+}
+
+@font-face {
+  font-weight: 500;
+  font-family: "BTM__Inter";
+  src:
+      url("chrome-extension://__MSG_@@extension_id__/src/assets/fonts/Inter-Medium.woff2")
+      format("woff2"),
+      url("chrome-extension://__MSG_@@extension_id__/src/assets/fonts/Inter-Medium.woff")
+      format("woff");
+}
+
+@font-face {
+  font-weight: 600;
+  font-family: "BTM__Inter";
+  src: 
+      url("chrome-extension://__MSG_@@extension_id__/src/assets/fonts/Inter-SemiBold.woff2")
+      format("woff2"),
+      url("chrome-extension://__MSG_@@extension_id__/src/assets/fonts/Inter-SemiBold.woff")
+      format("woff");
+}
