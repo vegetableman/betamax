@@ -8,7 +8,7 @@ const DEMO_HTML =
           <canvas id="anim_target" class="anim_target"></canvas>
         </div>
         <script type="text/javascript">
-          const delay_scale = 0.7;
+          const delay_scale = 0.9;
           let timer = null;
 
           const animate = function(img, timeline, element)

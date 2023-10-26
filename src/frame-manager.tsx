@@ -38,7 +38,7 @@ const logo = `
 `;
 
 let IS_PYODIDE_LOADED = false;
-const delay_scale = 0.7;
+const delay_scale = 0.9;
 let timer = null;
 
 function animate(img, timeline, canvas)
@@ -82,7 +82,7 @@ const App = () => {
   let aboutDialog;
   const [ss, setScreenshots] = createSignal([]);
   const [times, setTimes] = createSignal([]);
-  const [format, setFormat] = createSignal('webp');
+  const [format, setFormat] = createSignal('png');
   const [fileName, setFileName] = createSignal(null);
   const [exampleFileName, setExampleFileName] = createSignal(null);
   const [currentImage, setCurrentImage] = createSignal(0);
@@ -165,7 +165,7 @@ const App = () => {
     zip.file(`packed_image.${format()}`, packedImage());
     zip.file('demo.html', DEMO_HTML.replace('__TIMELINE__PLACEHOLDER__', timeline()).replace('__EXTENSION__', format()));
     const blob = await zip.generateAsync({type: 'blob'});
-    window.parent.postMessage({name: 'downloadFile', extension: 'zip', blob, file: `anim_${fileName()}`}, '*');
+    window.parent.postMessage({name: 'downloadFile', extension: 'zip', blob, file: `${fileName()}_anim`}, '*');
   }
 
   const terminatePyodide = () => {
@@ -215,6 +215,7 @@ const App = () => {
         gallery.focus();
       }, 10);
     } else if (e.shiftKey && e.key === 'Delete') {
+      toggleTransition(false);
       const lastIndex = ss().length - 1;
       setScreenshots((ss) => {
         let ss_ = [...ss];
@@ -259,7 +260,7 @@ const App = () => {
                 <div tabIndex="-1" style={{
                   '--tw-translate-x': `${i() < currentImage() ? -1 * (currentImage() - i()) * 100: i() > currentImage() ? (i() - currentImage()) * 100 : 0}%`,
                   'position': currentImage() !== i() ? 'absolute': 'relative'
-                }} class={`absolute outline-none left-0 top-0 h-full w-full flex items-center justify-center transform translate-x-[0%] ${transitionEnabled() ? 'transition-transform duration-250 ease-in-out delay-0': ''}`}>
+                }} class={`absolute px-5 my-[-30px] outline-none left-0 top-0 h-full w-full flex items-center justify-center transform translate-x-[0%] ${transitionEnabled() ? 'transition-transform duration-250 ease-in-out delay-0': ''}`}>
                   <img src={src} alt={`Image ${currentImage() + 1}`} />
                   <div class="absolute text-lg left-[48%] bottom-6 text-gray-400">
                     {i() + 1} of {ss().length}
@@ -323,7 +324,7 @@ const App = () => {
               }}>About</div>
             </div>
             {exampleFileName() && <div class="text-center max-w-[90%] break-all">Recently downloaded file name: <b style="font-weight: 600;">{exampleFileName()}</b></div>}
-            <div class="items-center flex">
+            <div class="items-center flex p-3">
               <span class="text-sm pr-2 text-[#333]">Resize factor</span> 
               <select class="p-[10px] border-2 border-solid border-[#777] text-[#555] rounded-sm my-[10px] text-xs w-16 ml-1 font-medium cursor-pointer" onchange={(e) => {
                 const { value } = e.target;
@@ -339,14 +340,14 @@ const App = () => {
                 <span class="hidden group-hover:inline absolute bg-[antiquewhite] p-1 w-[199px] b-[-50px] right-0 border border-[#777]">Set resize factor to scale images.</span>
               </div>
             </div>
-            <select class="p-[10px] border-2 border-solid border-[#777] text-[#555] my-[10px] text-xs rounded-sm font-medium cursor-pointer" value={format()} onchange={(e) => {
+            {/* <select class="p-[10px] border-2 border-solid border-[#777] text-[#555] my-[10px] text-xs rounded-sm font-medium cursor-pointer" value={format()} onchange={(e) => {
               const { value } = e.target;
               value && setFormat(value);
             }}>
               <option disabled>Select format</option>
               <option value="webp" selected>WEBP</option>
               <option value="png">PNG</option>
-            </select>
+            </select> */}
             <button style={{cursor: generating()? 'default': 'pointer'}} disabled={!ss()?.length} class="relative py-[10px] px-2 my-[10px] w-40 h-10 border-[#ef5527] bg-[#f46236] text-white text-sm border-outset border-2 disabled:opacity-70 disabled:cursor-default hover:not-disabled:bg-[#fb3a00] font-medium" onclick={generateAnimation}>
               <div class="absolute left-4 top-2 z-20">Generate animation</div>
               {generating() ? 
@@ -438,7 +439,7 @@ const App = () => {
                             The zip contains the following files:
                           </div>
                           <div class="pb-2">
-                            <pre class="inline">packed_image.webp ( or png)</pre>: An image that packs all the differences between frames.
+                            <pre class="inline">packed_image.png</pre>: An image that packs all the differences between frames.
                           </div>
                           <div class="pb-2">
                             <pre class="inline">timeline.json</pre>: Contains the timeline array with information on each of those differences for the animation to work.

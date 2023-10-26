@@ -16,7 +16,7 @@ chrome.action.onClicked.addListener(function(tab) {
   });
 });
 
-chrome.runtime.onMessage.addListener(async (req, sender, res) => {
+chrome.runtime.onMessage.addListener(async (req, sender, sendResponse) => {
   if (req.type === 'process_screenshots') {
     const { dimension, fileName, format } = req.payload;
     chrome.tabs.create({url: 'src/frame.html'}, (tab) => {
@@ -24,6 +24,6 @@ chrome.runtime.onMessage.addListener(async (req, sender, res) => {
         chrome.tabs.sendMessage(tab.id, { payload: dimension, fileName, format });
       }, 1000);
     });
-    res(true)
+    sendResponse(true);
   }
 });
