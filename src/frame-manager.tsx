@@ -261,7 +261,7 @@ const App = () => {
                   '--tw-translate-x': `${i() < currentImage() ? -1 * (currentImage() - i()) * 100: i() > currentImage() ? (i() - currentImage()) * 100 : 0}%`,
                   'position': currentImage() !== i() ? 'absolute': 'relative'
                 }} class={`absolute px-5 my-[-30px] outline-none left-0 top-0 h-full w-full flex items-center justify-center transform translate-x-[0%] ${transitionEnabled() ? 'transition-transform duration-250 ease-in-out delay-0': ''}`}>
-                  <img src={src} alt={`Image ${currentImage() + 1}`} />
+                  <img src={src} alt={`Image ${currentImage() + 1}`} class="max-h-[80vh]"/>
                   <div class="absolute text-lg left-[48%] bottom-6 text-gray-400">
                     {i() + 1} of {ss().length}
                   </div>
@@ -378,7 +378,7 @@ const App = () => {
               }}>
                 <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-x"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
               </span>
-              <canvas ref={canvas}/>
+              <canvas ref={canvas} class="max-h-[80vh]"/>
               <div class="absolute w-96 right-3 bottom-0 shadow-tw bg-white z-[1999999] overflow-hidden">
                 <div class="rounded-t-lg bg-[white] transition-all delay-0 duration-200" classList={{'h-[500px]': isExpanded(), 'h-[44px]': !isExpanded()}}>
                   <div class="flex justify-between py-[10px] px-3 cursor-pointer border-b border-gray-200 bg-[#444]" onClick={() => {

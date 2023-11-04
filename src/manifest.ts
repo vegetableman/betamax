@@ -46,7 +46,9 @@ const manifest = defineManifest(async () => ({
     "webRequest",
     "tabs",
     "storage",
-    "scripting"
+    "scripting",
+    "offscreen",
+    "tabCapture"
   ],
   host_permissions: [
     "http://*/*",
@@ -55,13 +57,15 @@ const manifest = defineManifest(async () => ({
   commands: {
     "toggle_capture": {
       "suggested_key": {
-        "default": "Alt+Shift+R"
+        "default": "Alt+Shift+R",
+        "mac": "Alt+Shift+R"
       },
       "description": "Toggle capture"
     },
     "cancel_capture": {
       "suggested_key": {
-        "default": "Alt+Shift+C"
+        "default": "Alt+Shift+C",
+        "mac": "Alt+Shift+C"
       },
       "description": "Cancel capture"
     }

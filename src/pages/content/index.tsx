@@ -2,7 +2,6 @@ import "@webcomponents/custom-elements";
 import { children, createEffect, createSignal, onCleanup, onMount } from "solid-js";
 import { customElement } from "solid-element";
 import { parse } from 'tldts';
-import JSZip from "jszip";
 
 const TITLE_BAR_HEIGHT = 40;
 const MIRROR_FRAME_HEIGHT = 15;
@@ -389,7 +388,8 @@ const __BTM_FRAME_INTERVAL_KEY = '__btm_frame_interval';
 const __BTM_FRAME_COLOR_KEY = '__btm_frame_color';
 const __BTM_FRAME_POSITION_KEY = '__btm_frame_position';
 const __BTM_FRAME_DIMENSION_KEY = '__btm_frame_dimension';
-let zip = new JSZip();
+
+let startTimer;
 
 customElement("btm-frame", {}, () => {
   let frame;
@@ -483,9 +483,6 @@ customElement("btm-frame", {}, () => {
     document.removeEventListener('mouseup', handleMouseUp);
   });
   
-
-  let stopCapture;
-  
   function formatTime(time) {
     return time < 10 ? `0${time}` : time.toString();
   }
@@ -504,173 +501,70 @@ customElement("btm-frame", {}, () => {
     if (isRecording()) {
       stopCapture();
     } else {
-      startCapture();
+      initCapture();
     }
   }
 
-  function startCapture() {
+  function initCapture() {
+    const r = frame.getBoundingClientRect();
+    const dpr = window.devicePixelRatio;
+
+    const region = {
+      left: r.left * dpr,
+      top: (r.bottom * dpr) + window.outerHeight - window.innerHeight + (TITLE_BAR_HEIGHT * dpr) + FRAME_SIZE,//(screen.height - window.outerHeight) + (window.screenTop > 0 ? window.screenTop + FRAME_SIZE + 1: 0) + 2,
+      width: dimension().width * dpr,
+      height: dimension().height * dpr - (MIRROR_FRAME_HEIGHT + FRAME_SIZE)
+    };
+
+    const loc = parse(document.location.href);
+    const messageToBgScript = {
+      type: 'start_capture',
+      payload: {
+        region, 
+        fileName: `betamax_${loc.domainWithoutSuffix}_${new Date().toLocaleString('sv-SE', { hour12: false}).replaceAll(/\-|:/g, '').replace(' ', '_')}.zip`
+      }
+    };
+
+    chrome.runtime.sendMessage(messageToBgScript);
+  }
+
+  let timerId;
+  startTimer = async () => {
     setTime('00:00');
     setCountDown(3);
-
-    async function captureElementScreenshots() {
-      let stream;
-      // Request screen capture permission
-      try {
-        stream = await navigator.mediaDevices.getDisplayMedia({
-          audio: false,
-          video: {
-            displaySurface: 'monitor'
-          },
-        });
-      }
-      catch {
-        return;
-      }
-
-      setIsStarting(true);
-      const i = setInterval(() => {
+    setIsStarting(true);
+    await new Promise((resolve) => {
+      const id = setInterval(() => {
+        console.log('interval:', countDown());
+        if (countDown() === 1) {
+          clearInterval(id);
+          resolve(true);
+        }
         setCountDown((c) => {
           return Math.max(c - 1, 1);
         });
       }, 1000);
-      await delay(3000);
-      clearInterval(i);
-      setIsStarting(false);
-
-      await delay(100);
-
-      // Create a video element and set the stream as the source
-      const videoElement = document.createElement('video');
-      videoElement.srcObject = stream;
-      videoElement.play();
-      setIsRecording(true);
-
-      const timerId = setInterval(() => {
-        setTime(updateDisplayTime());
-      }, 1000);
-    
-      // Wait for the video to load metadata
-      await new Promise(resolve => {
-        videoElement.onloadedmetadata = resolve;
-      });
-
-      let times = [];
-      let r = frame.getBoundingClientRect();
-      r = {
-        top: Math.round(r.bottom * window.devicePixelRatio) + (screen.height - window.outerHeight) + (window.screenTop > 0 ? window.screenTop + FRAME_SIZE + 1: 0) + 2,
-        width: Math.round(window.devicePixelRatio * dimension().width) - 4, 
-        left: Math.round(window.devicePixelRatio * r.left) + 2 + (window.screenLeft > 0 ? window.screenLeft: 0),
-        height: (s.offsetTop * window.devicePixelRatio) - (r.height * window.devicePixelRatio) - (showBottomTitleBar() ? TITLE_BAR_HEIGHT: 0) - 3
-      };
-
-      const canvas = document.createElement('canvas');
-      canvas.width =  r.width;
-      canvas.height =  r.height;
-      const context = canvas.getContext('2d', { alpha: false, willReadFrequently: true });
-
-      let completions = 0;
-      function postCapture() {
-        if (completions === times.length && !isRecording() && !isCancelled()) {
-          processScreenshots();
-          times = [];
-          completions = 0;
-        } else if (isCancelled()) {
-          times = [];
-          completions = 0;
-          setIsStarting(false);
-          setIsCancelled(false);
-          zip = new JSZip();
-        }
-      }
-
-      let isStarted = false;
-      let paintCount = 0;
-      let startTime = 0.0;
-      const processCapture = (now, metadata) => {
-        if (!isRecording()) {
-          return;
-        }
-        now = now || performance.now().toFixed(3);
-        if (startTime === 0.0) {
-          startTime = now;
-        }
-        const time = metadata ? metadata.mediaTime : videoElement.currentTime;
-        let t = Math.round((time - 2) * 1000);
-        times.push(t);
-        if (!isStarted) {
-          isStarted = true;
-          setTime(updateDisplayTime());
-        }
-        context.clearRect(0, 0, canvas.width, canvas.height);
-        context.drawImage(videoElement, -r.left, -r.top);
-
-        const elapsed = (now - startTime) / 1000.0;
-        const fps = (++paintCount / elapsed).toFixed(3);
-        console.log('fps:', fps);
-
-        canvas.toBlob((blob) => {
-          completions++;
-          zip.file(`${t}.${imageFormat()}`, blob);
-          postCapture();
-        }, `image/${imageFormat()}`);
-
-        if (frameCaptureMode() === 'auto') {
-          videoElement.requestVideoFrameCallback(processCapture);
-        }
-      }
-      
-      let cancelTimer;
-      if (frameCaptureMode() === 'manual') {
-        cancelTimer = intervalTimer(processCapture, frameInterval());
-      } else {
-        videoElement.requestVideoFrameCallback(processCapture);
-      }
-
-      stopCapture = async function() {
-        clearInterval(timerId);
-        setIsRecording(false);
-        cancelTimer?.();
-        totalSeconds = 0;
-        stream.getTracks().forEach(track => track.stop());
-        postCapture();
-        document.removeEventListener('stop-capture', stopCapture);
-      }
-
-      document.addEventListener('stop-capture', stopCapture);
-
-      stream.getVideoTracks()[0].onended = function () {
-        stopCapture();
-      };
-      
-      async function processScreenshots() {
-        zip.generateAsync({type: 'blob'}).then(async function(content) {
-          let link = document.createElement('a')
-          link.rel = 'noopener'
-          link.href = URL.createObjectURL(content);
-          let loc = parse(document.location.href);
-          let fileName = `betamax_${loc.domainWithoutSuffix}_${new Date().toLocaleString('sv-SE', { hour12: false}).replaceAll(/\-|:/g, '').replace(' ', '_')}.zip`;
-          link.download = fileName;
-          setTimeout(function () { URL.revokeObjectURL(link.href) }, 4E4); // 40s
-          setTimeout(function () { link.click() }, 0);
-          const messageToBgScript = {
-            type: 'process_screenshots',
-            payload: {fileName, format: imageFormat(), dimension: dimension() ? {...dimension()}: null}
-          };
-          chrome.runtime.sendMessage(messageToBgScript, (response) => {
-            // Optional: Handle the response from the background script
-            console.log('Response from background:', response);
-          });
-          zip = new JSZip();
-        });
-      }
-    };
-
-    captureElementScreenshots();
-  }
+    });
+    setIsStarting(false);
+    await delay(100);
+    chrome.runtime.sendMessage({type: 'continue_capture'});
+    setIsRecording(true);
+    setTime(updateDisplayTime());
+    timerId = setInterval(() => {
+      setTime(updateDisplayTime());
+    }, 1000);
+  };
 
   function cancelCapture() {
     setIsCancelled(true);
-    document.dispatchEvent(stopEvent);
+    clearInterval(timerId);
+    setIsRecording(false);
+    totalSeconds = 0;
+  }
+
+  function stopCapture() {
+    cancelCapture();
+    chrome.runtime.sendMessage({type: 'stop_capture'});
   }
 
   createEffect(() => {
@@ -700,6 +594,7 @@ customElement("btm-frame", {}, () => {
   onMount(async () => {
     document.addEventListener('toggle-capture', toggleCapture);
     document.addEventListener('cancel-capture', cancelCapture);
+    document.addEventListener('stop-capture', stopCapture);
     window.addEventListener('resize', onResize);
     const data = await chrome.storage.sync.get(__BTM_FRAME_INTERVAL_KEY);
     if (data && data[__BTM_FRAME_INTERVAL_KEY]) {
@@ -741,7 +636,7 @@ customElement("btm-frame", {}, () => {
       {!isRecording() ? 
         <button title="Record (Alt + Shift + R)" class="btm_record-btn" onClick={(e) => {
           e.preventDefault();
-          startCapture();
+          initCapture();
         }} onMouseDown={(e) => e.stopPropagation()}>
         <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-circle"><circle cx="12" cy="12" r="10"></circle></svg>
         <span class="btm_record__text">Record</span>
@@ -754,7 +649,10 @@ customElement("btm-frame", {}, () => {
       </button>: null}
       {isRecording() ?
         <span class="btm_title__timer-wrapper">
-          <button title="Cancel (Alt + Shift + C)" class="btm_title__cancel-btn"  onclick={cancelCapture} onMouseDown={(e) => e.stopPropagation()}>✖</button>
+          <button title="Cancel (Alt + Shift + C)" class="btm_title__cancel-btn"  onclick={() => {
+              cancelCapture();
+              chrome.runtime.sendMessage({type: 'cancel_capture'});
+          }} onMouseDown={(e) => e.stopPropagation()}>✖</button>
           <span class="btm_title__timer">
             {time()}
           </span>
@@ -983,6 +881,7 @@ const toggleCaptureEvent = new CustomEvent("toggle-capture");
 const cancelEvent = new CustomEvent("cancel-capture");
 
 chrome.runtime.onMessage.addListener(async (req) => {
+  console.log('req', req);
   if (req.message === 'toggleCapture') {
     document.dispatchEvent(toggleCaptureEvent);
   } else if (req.message === 'cancelCapture') {
@@ -998,6 +897,10 @@ chrome.runtime.onMessage.addListener(async (req) => {
     }
     const frameEl = document.createElement('btm-frame');
     document.body.appendChild(frameEl);
+  } else if (req.message === 'bg-prerecording-started') {
+    startTimer();
+  } else if (req.message === 'bg-recording-stopped') {
+    document.dispatchEvent(cancelEvent);
   }
   return true;
 });

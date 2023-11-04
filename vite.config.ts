@@ -33,6 +33,18 @@ export default defineConfig({
       src: root + '/demo.js',
       dest: outDir + '/src'
     },
+    {
+      src: root + '/offscreen.html',
+      dest: outDir + '/src'
+    },
+    {
+      src: root + '/offscreen.js',
+      dest: outDir + '/src'
+    },
+    {
+      src: root + '/jszip.min.js',
+      dest: outDir + '/src'
+    },
   ],  hook: 'writeBundle'
   }), WindiCSS(),  crx({ manifest })],
   resolve: {
