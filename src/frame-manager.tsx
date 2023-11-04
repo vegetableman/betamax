@@ -243,7 +243,7 @@ const App = () => {
   }}>
     <div class="flex h-full">
       <pre class="absolute left-[25px] top-[25px] text-[mediumpurple] text-[3px] leading-[unset]">{logo}</pre>
-      <div class="flex-1 bg-zinc-800 h-full" tabindex="0" ref={gallery}>
+      <div class="flex-1 bg-zinc-800 bg-[yellow] h-full" tabindex="0" ref={gallery}>
         {ss().length ?
           <div class="relative h-full">
             <div class="absolute"></div>
