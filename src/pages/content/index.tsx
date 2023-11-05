@@ -2,16 +2,14 @@ import "@webcomponents/custom-elements";
 import { children, createEffect, createSignal, onCleanup, onMount } from "solid-js";
 import { customElement } from "solid-element";
 import { parse } from 'tldts';
+import { delay, evenOut } from './utils'
 
+const __BTM_COLOR_VAR = '--btm-bg-color';
 const TITLE_BAR_HEIGHT = 40;
 const MIRROR_FRAME_HEIGHT = 15;
-const __BTM_COLOR_VAR = '--btm-bg-color';
-let __BTM_COLOR_VALUE;
-let __BTM_DIMENSION_OBJ;
-let __BTM_POSITION_OBJ;
 
 const style = `
-  .btm_frame {
+  .btm_window {
     ${__BTM_COLOR_VAR}: #333;
     --btm-title-background-color: var(${__BTM_COLOR_VAR});
     --btm-record-btn-background-color: #f46236;
@@ -26,11 +24,11 @@ const style = `
     --btm-countdown-background-color: #33333352;
     --btm-config-background-color: #333333e3;
   }
-  .btm_frame {
+  .btm_window {
     font-family: "BTM__Inter", Arial, Helvetica, sans-serif;
     font-size: 13px;
   }
-  .btm_frame__inner {
+  .btm_window__inner {
     display: flex;
     flex-direction: column;
     position: relative;
@@ -200,7 +198,7 @@ const style = `
       content: "...";
     }
   }
-  .btm_countdown {
+  .btm_overlay {
     display: flex;
     flex-direction: column;
     justify-content: center;
@@ -213,9 +211,18 @@ const style = `
     color: var(--btm-btn-color);
     font-size: 50px;
   }
-  .btm_countdown > span {
+  .btm_overlay > span {
     position: relative;
     top: -30px;
+  }
+  .btm_processing {
+    font-size: 20px;
+  }
+  .btm_processing > span::after {
+    position: absolute;
+    content: ".";
+    opacity: 0;
+    animation: animate_dots 1s infinite;
   }
   .btm_title__close-btn, .btm_title__config-btn, .btm_title__cancel-btn {
     background: none;
@@ -328,6 +335,10 @@ const style = `
   }
 `;
 
+let __BTM_COLOR_VALUE;
+let __BTM_DIMENSION_OBJ;
+let __BTM_POSITION_OBJ;
+
 function Resizer(props) {
   const c = children(() => props.children);
   const { frameRef, onResize, onResizeEnd } = props;
@@ -342,7 +353,6 @@ function Resizer(props) {
     e.preventDefault();
     e.stopPropagation();
     setMousePosition({x: e.clientX, y: e.clientY});
-    
     setStartWidth(frameRef.offsetWidth);
     setStartLeft(frameRef.getBoundingClientRect().left);
     setResizing(true);
@@ -380,54 +390,40 @@ function Resizer(props) {
   return <>{c()}</>
 }
 
-const DEFAULT_FRAME_INTERVAL = 16;
+const DEFAULT_FRAME_RATE = 30;
 const MIN_WIDTH = 200;
 const MIN_HEIGHT = 45;
 const FRAME_SIZE = 5;
-const __BTM_FRAME_INTERVAL_KEY = '__btm_frame_interval';
-const __BTM_FRAME_COLOR_KEY = '__btm_frame_color';
-const __BTM_FRAME_POSITION_KEY = '__btm_frame_position';
-const __BTM_FRAME_DIMENSION_KEY = '__btm_frame_dimension';
+const __BTM_FRAME_RATE_KEY = '__btm_frame_rate';
+const __BTM_WINDOW_COLOR_KEY = '__btm_window_color';
+const __BTM_WINDOW_POSITION_KEY = '__btm_window_position';
+const __BTM_WINDOW_DIMENSION_KEY = '__btm_window_dimension';
 
-let startTimer;
+let startCountdown;
 
 customElement("btm-frame", {}, () => {
   let frame;
-  let overlay;
-  let dimLabel;
-  let n;
-  let s;
-  let e;
-  let w;
-  let se;
-  let sw;
-  let ne;
-  let nw;
-  let bottomTitleBar;
   const [mousePosition, setMousePosition] = createSignal({ x: 0, y: 0 });
-  const [windowWidth, setWindowWidth] = createSignal(window.innerWidth);
-  const [windowHeight, setWindowHeight] = createSignal(window.innerHeight);
   const [elementOffset, setElementOffset] = createSignal({ 
     x: __BTM_POSITION_OBJ?.x ?? window.innerWidth/2 - MIN_WIDTH, 
     y: __BTM_POSITION_OBJ?.y ?? window.innerHeight/2 - MIN_WIDTH 
   });
+  const [frameRate, setFrameRate] = createSignal(DEFAULT_FRAME_RATE);
   const [isMouseDown, setMouseDown] = createSignal(false);
   const [isRecording, setIsRecording] = createSignal(false);
   const [isStarting, setIsStarting] = createSignal(false);
+  const [isStopping, setIsStopping] = createSignal(false);
   const [showConfig, toggleConfig] = createSignal(false);
   const [isResizing, setIsResizing] = createSignal(false);
+  const [isProcessing, setIsProcessing] = createSignal(false);
   const [showBottomTitleBar, toggleBottomTitleBar] = createSignal(false);
-  const [frameCaptureMode, setFrameCaptureMode] = createSignal("auto");
-  const [frameInterval, setFrameInterval] = createSignal(DEFAULT_FRAME_INTERVAL);
-  const [selectedEl, setSelectedEl] = createSignal("");
+  const [selectedEl, setSelectedEl] = createSignal(null);
   const [dimension, setDimension] = createSignal({
     width: __BTM_DIMENSION_OBJ?.width ?? 400, 
     height:__BTM_DIMENSION_OBJ?.height ?? (400 + FRAME_SIZE)
   });
   const [time, setTime] = createSignal('00:00');
   const [countDown, setCountDown] = createSignal(3);
-  const [imageFormat, _setImageFormat] = createSignal("png");
-  const [isCancelled, setIsCancelled] = createSignal(false);
   const [color, setColor] = createSignal(__BTM_COLOR_VALUE);
 
   const handleMouseDown = (event) => {
@@ -510,17 +506,22 @@ customElement("btm-frame", {}, () => {
     const dpr = window.devicePixelRatio;
 
     const region = {
-      left: r.left * dpr,
-      top: (r.bottom * dpr) + window.outerHeight - window.innerHeight + (TITLE_BAR_HEIGHT * dpr) + FRAME_SIZE,//(screen.height - window.outerHeight) + (window.screenTop > 0 ? window.screenTop + FRAME_SIZE + 1: 0) + 2,
-      width: dimension().width * dpr,
-      height: dimension().height * dpr - (MIRROR_FRAME_HEIGHT + FRAME_SIZE)
+      left: evenOut(elementOffset().x) * dpr,
+      top: evenOut(elementOffset().y, -1) * dpr,
+      width: evenOut(dimension().width) * dpr - 2,
+      height: evenOut(dimension().height - FRAME_SIZE) * dpr - 2,
+      window: {innerHeight: evenOut(window.innerHeight)}
     };
+
+    console.log('region:', region);
 
     const loc = parse(document.location.href);
     const messageToBgScript = {
       type: 'start_capture',
+      target: 'background',
       payload: {
         region, 
+        frameRate: frameRate(),
         fileName: `betamax_${loc.domainWithoutSuffix}_${new Date().toLocaleString('sv-SE', { hour12: false}).replaceAll(/\-|:/g, '').replace(' ', '_')}.zip`
       }
     };
@@ -529,13 +530,12 @@ customElement("btm-frame", {}, () => {
   }
 
   let timerId;
-  startTimer = async () => {
+  startCountdown = async () => {
     setTime('00:00');
     setCountDown(3);
     setIsStarting(true);
     await new Promise((resolve) => {
       const id = setInterval(() => {
-        console.log('interval:', countDown());
         if (countDown() === 1) {
           clearInterval(id);
           resolve(true);
@@ -547,7 +547,7 @@ customElement("btm-frame", {}, () => {
     });
     setIsStarting(false);
     await delay(100);
-    chrome.runtime.sendMessage({type: 'continue_capture'});
+    chrome.runtime.sendMessage({type: 'continue_capture', target: 'background'});
     setIsRecording(true);
     setTime(updateDisplayTime());
     timerId = setInterval(() => {
@@ -555,39 +555,44 @@ customElement("btm-frame", {}, () => {
     }, 1000);
   };
 
-  function cancelCapture() {
-    setIsCancelled(true);
+  function reset() {
     clearInterval(timerId);
     setIsRecording(false);
     totalSeconds = 0;
   }
 
-  function stopCapture() {
-    cancelCapture();
-    chrome.runtime.sendMessage({type: 'stop_capture'});
+  function cancelCapture() {
+    reset();
   }
 
-  createEffect(() => {
-    if (isStarting() && overlay) {
-      overlay.style.height = parseInt(w.style.height) - TITLE_BAR_HEIGHT - FRAME_SIZE + 'px';
-    }
-  });
+  function stopCapture() {
+    reset();
+    setIsStopping(true);
+    chrome.runtime.sendMessage({type: 'stop_capture', target: 'background'});
+  }
+
+  function processingCapture() {
+    setIsStopping(false);
+    setIsProcessing(true);
+  }
+
+  function processingCompletion() {
+    setIsProcessing(false);
+  }
 
   createEffect(async () => {
     if (!color()) {
       return;
     }
-    chrome.storage.sync.set({[__BTM_FRAME_COLOR_KEY]: color()});
+    chrome.storage.sync.set({[__BTM_WINDOW_COLOR_KEY]: color()});
   });
 
   createEffect(() => {
-    sessionStorage.setItem(__BTM_FRAME_POSITION_KEY, JSON.stringify(elementOffset()));
-    sessionStorage.setItem(__BTM_FRAME_DIMENSION_KEY, JSON.stringify(dimension()));
+    sessionStorage.setItem(__BTM_WINDOW_POSITION_KEY, JSON.stringify(elementOffset()));
+    sessionStorage.setItem(__BTM_WINDOW_DIMENSION_KEY, JSON.stringify(dimension()));
   });
 
   function onResize() {
-    setWindowWidth(innerWidth);
-    setWindowHeight(innerHeight);
     setupBottomTitleBar();
   }
 
@@ -595,10 +600,12 @@ customElement("btm-frame", {}, () => {
     document.addEventListener('toggle-capture', toggleCapture);
     document.addEventListener('cancel-capture', cancelCapture);
     document.addEventListener('stop-capture', stopCapture);
+    document.addEventListener('processing', processingCapture);
+    document.addEventListener('completion', processingCompletion);
     window.addEventListener('resize', onResize);
-    const data = await chrome.storage.sync.get(__BTM_FRAME_INTERVAL_KEY);
-    if (data && data[__BTM_FRAME_INTERVAL_KEY]) {
-      setFrameInterval(data[__BTM_FRAME_INTERVAL_KEY]);
+    const data = await chrome.storage.sync.get(__BTM_FRAME_RATE_KEY);
+    if (data && data[__BTM_FRAME_RATE_KEY]) {
+      setFrameRate(data[__BTM_FRAME_RATE_KEY]);
     }
     setupBottomTitleBar();
   });
@@ -606,6 +613,9 @@ customElement("btm-frame", {}, () => {
   onCleanup(() => {
     document.removeEventListener('toggle-capture', toggleCapture);
     document.removeEventListener('cancel-capture', cancelCapture);
+    document.removeEventListener('stop-capture', stopCapture);
+    document.removeEventListener('processing', processingCapture);
+    document.removeEventListener('completion', processingCompletion);
     window.removeEventListener('resize', onResize);
   });
 
@@ -615,8 +625,10 @@ customElement("btm-frame", {}, () => {
     }
     
     setSelectedEl(value);
-    const el = document.querySelector(value);
-    if (!el) {
+    let el;
+    try {
+      el = document.querySelector(value);
+    } catch {
       return;
     }
     const rect = el.getBoundingClientRect();
@@ -625,7 +637,13 @@ customElement("btm-frame", {}, () => {
       x: rect.left - selectionOffset,
       y: rect.top - TITLE_BAR_HEIGHT - selectionOffset,
     });
-    const h = rect.height + MIRROR_FRAME_HEIGHT;
+    let h;
+    console.log(rect.bottom, window.innerHeight);
+    if (rect.bottom >= window.innerHeight) {
+      h = rect.height + FRAME_SIZE + selectionOffset;
+    } else {
+      h = rect.height + MIRROR_FRAME_HEIGHT;
+    }
     setDimension({width: rect.width + (2 * selectionOffset), height: h});
     toggleConfig(false);
     setupBottomTitleBar();
@@ -651,7 +669,7 @@ customElement("btm-frame", {}, () => {
         <span class="btm_title__timer-wrapper">
           <button title="Cancel (Alt + Shift + C)" class="btm_title__cancel-btn"  onclick={() => {
               cancelCapture();
-              chrome.runtime.sendMessage({type: 'cancel_capture'});
+              chrome.runtime.sendMessage({type: 'cancel_capture', target: 'background'});
           }} onMouseDown={(e) => e.stopPropagation()}>✖</button>
           <span class="btm_title__timer">
             {time()}
@@ -659,6 +677,7 @@ customElement("btm-frame", {}, () => {
         </span>: 
       null}
       {isStarting() ? <span class="btm_title__text">Starting</span>: null}
+      {isStopping() && !isProcessing() ? <span class="btm_title__text">Stopping</span>: null}
       <div style="z-index: 2;">
         <button title="Settings" class="btm_title__config-btn" disabled={isRecording()} onclick={() => {
           toggleConfig((c) => !c);
@@ -672,7 +691,7 @@ customElement("btm-frame", {}, () => {
 
   return (
     <div
-      class="btm_frame" 
+      class="btm_window" 
       ref={frame}
       style={{
         position: 'fixed',
@@ -685,41 +704,27 @@ customElement("btm-frame", {}, () => {
       }}
     >
       <style>{style}</style>
-      <div class="btm_frame__inner">
+      <div class="btm_window__inner">
         <div class="btm_title_bar" onMouseDown={handleMouseDown}>
           {controls()}
         </div>
-        {isStarting() ? <div class="btm_countdown" ref={overlay}>
-          <span>{countDown()}</span>
+        {isStarting() || isProcessing() ? <div style={{height: dimension().height - FRAME_SIZE + 'px'}}  classList={{btm_overlay: true, btm_processing: isProcessing()}}>
+          <span>{isProcessing() ? 'Processing Captures': countDown()}</span>
         </div>: null}
         {showConfig() ? <div class="btm_config" style={{height: dimension().height + 'px'}}>
           <div class="btm_config__row">
-              <span class="btm_config__row__label">Capture mode: </span>
-              <div class="btm_config__row__wrapper btm_config__row--mode">
-                <input class="btm_config__mode-input" onchange={() => {
-                  setFrameCaptureMode('auto');
-                }}  type="radio" id="auto" name="mode" value="auto" checked={frameCaptureMode() === 'auto'}/>
-                <label class="btm_config__mode-label btm_config__mode-label--auto" for="auto">Auto</label>
-
-                <input class="btm_config__mode-input" onchange={() => {
-                  setFrameCaptureMode('manual');
-                }} type="radio" id="manual" name="mode" value="manual" checked={frameCaptureMode() === 'manual'}/>
-                <label class="btm_config__mode-label" for="manual">Manual</label>
-              </div>
-          </div>
-          <div class="btm_config__row">
-              <span class="btm_config__row__label">Capture interval (ms): </span>
+              <span class="btm_config__row__label">Frame rate: </span>
               <span class="btm_config__row__wrapper">
-                <input class="btm_config__interval-input" disabled={frameCaptureMode() === 'auto'} type="text" style="width: 50px;" value={`${frameInterval()}`} onchange={(e) => {
+                <input class="btm_config__interval-input" type="text" style="width: 50px;" value={`${frameRate()}`} onchange={(e) => {
                   let {value} = e.target;
                   let v = parseInt(value);
-                  !Number.isNaN(v) && v > 0 && setFrameInterval(v);
-                  chrome.storage.sync.set({[__BTM_FRAME_INTERVAL_KEY]: v});
+                  !Number.isNaN(v) && v > 0 && setFrameRate(v);
+                  chrome.storage.sync.set({[__BTM_FRAME_RATE_KEY]: v});
                 }}/>
               </span>
           </div>
           <div class="btm_config__row">
-              <span class="btm_config__row__label">Frame color: </span>
+              <span class="btm_config__row__label">Window color: </span>
               <div class="btm_config__row__wrapper btm_config__row--mode">
                 <input type="color" value={color()} oninput={(e) => {
                   setColor(e.target.value);
@@ -727,7 +732,7 @@ customElement("btm-frame", {}, () => {
               </div>
           </div>
           <div class="btm_config__row">
-              <span class="btm_config__row__label">Frame position: </span>
+              <span class="btm_config__row__label">Window position: </span>
               <span class="btm_config__row__wrapper">
                   <input type="text" style="width: 50px;" value={elementOffset().x} onchange={(e) => {
                     let {value} = e.target;
@@ -743,7 +748,7 @@ customElement("btm-frame", {}, () => {
               </span>
           </div>
           <div class="btm_config__row">
-              <span class="btm_config__row__label">Frame size: </span>
+              <span class="btm_config__row__label">Window size: </span>
               <span class="btm_config__row__wrapper">
                   <input type="text" style="width: 50px;" value={dimension().width} onchange={(e) => {
                     let {value} = e.target;
@@ -762,7 +767,7 @@ customElement("btm-frame", {}, () => {
           <div class="btm_config__row btm_config__row--element">
               <span class="btm_config__row__label">Enter id or class or name of an element to record (and press <b style="font-weight: 600;">Enter</b>): </span>
               <span class="btm_config__row__wrapper">
-                <input type="text" style="width: 140px;" value={`${selectedEl()}`} onblur={(e) => {
+                <input type="text" style="width: 140px;" value={selectedEl()} onblur={(e) => {
                   let {value} = e.target;
                   selectElement(value);
                 }} placeholder="Starting with # or ." onkeyup={(e: KeyboardEvent) => {
@@ -781,7 +786,9 @@ customElement("btm-frame", {}, () => {
             setIsResizing(true);
             if (dir === 'e') {
               const w = width + deltaX;
-              if (w < MIN_WIDTH) return;
+              if (w < MIN_WIDTH) {
+                return;
+              } 
               setDimension({width: w, height: dimension().height});
             } else if (dir === 'w' || dir === 'sw') {
               const w = width - deltaX;
@@ -819,30 +826,30 @@ customElement("btm-frame", {}, () => {
           }} onResizeEnd={() => {
             setIsResizing(false);
           }}>
-            <div class="btm_n" data-dir="n" ref={n}>
+            <div class="btm_n" data-dir="n">
               <div></div>
             </div>
-            <div class="btm_ne" data-dir="ne" ref={ne}></div>
-            <div class="btm_nw" data-dir="nw" ref={nw}></div>
-            <div class="btm_w" data-dir="w" ref={w} style={{height: dimension().height + TITLE_BAR_HEIGHT + 'px'}}>
+            <div class="btm_ne" data-dir="ne" ></div>
+            <div class="btm_nw" data-dir="nw" ></div>
+            <div class="btm_w" data-dir="w" style={{height: dimension().height + TITLE_BAR_HEIGHT + 'px'}}>
               <div></div>
             </div>
-            <div class="btm_e" data-dir="e" ref={e} style={{height: dimension().height + TITLE_BAR_HEIGHT + 'px'}}>
+            <div class="btm_e" data-dir="e" style={{height: dimension().height + TITLE_BAR_HEIGHT + 'px'}}>
               <div></div>
             </div>
-            <div class="btm_s" data-dir="s" ref={s} style={{bottom: -dimension().height - (showBottomTitleBar() ? TITLE_BAR_HEIGHT + 10 : MIRROR_FRAME_HEIGHT) + FRAME_SIZE + 'px', height: showBottomTitleBar() ? '10px': '15px'}}>
+            <div class="btm_s" data-dir="s" style={{bottom: -dimension().height - (showBottomTitleBar() ? TITLE_BAR_HEIGHT + 10 : MIRROR_FRAME_HEIGHT) + FRAME_SIZE + 'px', height: showBottomTitleBar() ? '10px': '15px'}}>
               <div></div>
             </div>
-            <div class="btm_se" data-dir="se" ref={se} style={{bottom: -dimension().height - (showBottomTitleBar() ? TITLE_BAR_HEIGHT + 10: 0) + 'px'}}>
+            <div class="btm_se" data-dir="se"  style={{bottom: -dimension().height - (showBottomTitleBar() ? TITLE_BAR_HEIGHT + 10: 0) + 'px'}}>
             </div>
-            <div class="btm_sw" data-dir="sw" ref={sw} style={{bottom: -dimension().height - (showBottomTitleBar() ? TITLE_BAR_HEIGHT + 10: 0) + 'px'}}>
+            <div class="btm_sw" data-dir="sw"  style={{bottom: -dimension().height - (showBottomTitleBar() ? TITLE_BAR_HEIGHT + 10: 0) + 'px'}}>
               {isResizing() ? <div style={{position: "relative", width: "100%", height: "100%"}}>
-                <div ref={dimLabel} style={{bottom: showBottomTitleBar() ? `${TITLE_BAR_HEIGHT + 15}px`: '10px'}} class="btm_dimension">{dimension().width}x{dimension().height - FRAME_SIZE}</div>
+                <div style={{bottom: showBottomTitleBar() ? `${TITLE_BAR_HEIGHT + 15}px`: '10px'}} class="btm_dimension">{dimension().width}x{dimension().height - FRAME_SIZE}</div>
               </div>: null}
             </div>
           </Resizer>
         </div>
-        <div style={{display: showBottomTitleBar() ? 'flex': 'none', bottom: -dimension().height - TITLE_BAR_HEIGHT + 'px'}} class="btm_bottom_bar" ref={bottomTitleBar} onMouseDown={handleMouseDown}>
+        <div style={{display: showBottomTitleBar() ? 'flex': 'none', bottom: -dimension().height - TITLE_BAR_HEIGHT + 'px'}} class="btm_bottom_bar" onMouseDown={handleMouseDown}>
           {controls()}
         </div>
       </div>
@@ -850,57 +857,43 @@ customElement("btm-frame", {}, () => {
   );
 });
 
-function delay(ms) {
-  return new Promise((resolve) => {
-    setTimeout(resolve, ms);
-  });
-}
-
-function intervalTimer(callback, interval) {
-  let counter = 1;
-  let timeoutId;
-  const startTime = Date.now();
-
-  function main() {
-    const nowTime = Date.now();
-    const nextTime = startTime + counter * interval;
-    timeoutId = setTimeout(main, interval - (nowTime - nextTime));
-    counter += 1;
-    callback();
-  }
-
-  timeoutId = setTimeout(main, interval);
-
-  return () => {
-    clearTimeout(timeoutId);
-  };
-}
-
 const stopEvent = new CustomEvent("stop-capture");
 const toggleCaptureEvent = new CustomEvent("toggle-capture");
 const cancelEvent = new CustomEvent("cancel-capture");
+const processingEvent = new CustomEvent("processing");
+const completionEvent = new CustomEvent("completion");
 
-chrome.runtime.onMessage.addListener(async (req) => {
-  console.log('req', req);
-  if (req.message === 'toggleCapture') {
+chrome.runtime.onMessage.addListener(async (message) => {
+  if (message.target !== 'tab') {
+    return;
+  }
+
+  if (message.type === 'toggle_capture') {
     document.dispatchEvent(toggleCaptureEvent);
-  } else if (req.message === 'cancelCapture') {
+  } else if (message.type === 'cancel_capture') {
     document.dispatchEvent(cancelEvent);
-  } else if (req.message === 'viewFrame') {
-    const colorData = await chrome.storage.sync.get(__BTM_FRAME_COLOR_KEY);
-    __BTM_COLOR_VALUE = colorData[__BTM_FRAME_COLOR_KEY];
-    const dimensionValue = sessionStorage.getItem(__BTM_FRAME_DIMENSION_KEY);
-    const positionValue = sessionStorage.getItem(__BTM_FRAME_POSITION_KEY);
+  } else if (message.type === 'view_frame') {
+    if (document.querySelector('btm-frame')) {
+      return;
+    }
+    const colorData = await chrome.storage.sync.get(__BTM_WINDOW_COLOR_KEY);
+    __BTM_COLOR_VALUE = colorData[__BTM_WINDOW_COLOR_KEY];
+    const dimensionValue = sessionStorage.getItem(__BTM_WINDOW_DIMENSION_KEY);
+    const positionValue = sessionStorage.getItem(__BTM_WINDOW_POSITION_KEY);
     if (dimensionValue && positionValue) {
       __BTM_DIMENSION_OBJ = JSON.parse(dimensionValue);
       __BTM_POSITION_OBJ = JSON.parse(positionValue);
     }
     const frameEl = document.createElement('btm-frame');
     document.body.appendChild(frameEl);
-  } else if (req.message === 'bg-prerecording-started') {
-    startTimer();
-  } else if (req.message === 'bg-recording-stopped') {
+  } else if (message.type === 'init_capture') {
+    startCountdown();
+  } else if (message.type === 'capture_stopped') {
     document.dispatchEvent(cancelEvent);
+  } else if (message.type === 'processing_capture') {
+    document.dispatchEvent(processingEvent);
+  } else if (message.type === 'open_frame_manager') {
+    document.dispatchEvent(completionEvent);
   }
   return true;
 });
