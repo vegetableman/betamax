@@ -1,11 +1,12 @@
 import 'virtual:windi.css';
 import { For, createEffect, createSignal, onMount } from "solid-js";
 import  {Portal, render} from "solid-js/web";
-import pyodide from "./pyodide";
 import JSZip from "jszip";
+import pyodide from "./pyodide";
 import DEMO_HTML from './demo.js';
+import { copyToClipboard } from './pages/content/utils';
 
-const {hostname} = new URL(window.location.href);
+const { hostname } = new URL(window.location.href);
 window.chrome = {
   // @ts-ignore
   runtime: {
@@ -16,26 +17,6 @@ window.chrome = {
   }
 };
 
-
-// https://stackoverflow.com/a/71876238
-const copyToClipboard = (text) => {
-  const textArea = document.createElement("textarea"); 
-  textArea.value=text; 
-  document.body.appendChild(textArea); 
-  textArea.focus();
-  textArea.select(); 
-  document.execCommand('copy');
-  document.body.removeChild(textArea);
-};
-
-const logo = `
-██████╗ ███████╗████████╗ █████╗ ███╗   ███╗ █████╗ ██╗  ██╗
-██╔══██╗██╔════╝╚══██╔══╝██╔══██╗████╗ ████║██╔══██╗╚██╗██╔╝
-██████╔╝█████╗     ██║   ███████║██╔████╔██║███████║ ╚███╔╝ 
-██╔══██╗██╔══╝     ██║   ██╔══██║██║╚██╔╝██║██╔══██║ ██╔██╗ 
-██████╔╝███████╗   ██║   ██║  ██║██║ ╚═╝ ██║██║  ██║██╔╝ ██╗
-╚═════╝ ╚══════╝   ╚═╝   ╚═╝  ╚═╝╚═╝     ╚═╝╚═╝  ╚═╝╚═╝  ╚═╝
-`;
 
 let IS_PYODIDE_LOADED = false;
 const delay_scale = 0.9;
@@ -82,7 +63,7 @@ const App = () => {
   let aboutDialog;
   const [ss, setScreenshots] = createSignal([]);
   const [times, setTimes] = createSignal([]);
-  const [format, setFormat] = createSignal('png');
+  const [format, _setFormat] = createSignal('png');
   const [fileName, setFileName] = createSignal(null);
   const [exampleFileName, setExampleFileName] = createSignal(null);
   const [currentImage, setCurrentImage] = createSignal(0);
@@ -242,13 +223,17 @@ const App = () => {
     } 
   }}>
     <div class="flex h-full">
-      <pre class="absolute left-[25px] top-[25px] text-[mediumpurple] text-[3px] leading-[unset]">{logo}</pre>
-      <div class="flex-1 bg-zinc-800 bg-[yellow] h-full" tabindex="0" ref={gallery}>
+      <div class="absolute left-6 top-6 w-28">
+        <img src="./assets/img/logo-full.svg"/>
+      </div>
+      <div class="flex-1 bg-zinc-800 h-full" tabindex="0" ref={gallery}>
         {ss().length ?
           <div class="relative h-full">
             <div class="absolute"></div>
             <div class="absolute left-5 bottom-6 opacity-60 hover:opacity-100 z-10">
-              <div class="text-lg text-gray-50">⌨</div>
+              <div class="text-lg text-gray-50 mb-1">
+                <svg fill="currentColor" height="1em" viewBox="0 0 576 512"><path d="M64 112c-8.8 0-16 7.2-16 16V384c0 8.8 7.2 16 16 16H512c8.8 0 16-7.2 16-16V128c0-8.8-7.2-16-16-16H64zM0 128C0 92.7 28.7 64 64 64H512c35.3 0 64 28.7 64 64V384c0 35.3-28.7 64-64 64H64c-35.3 0-64-28.7-64-64V128zM176 320H400c8.8 0 16 7.2 16 16v16c0 8.8-7.2 16-16 16H176c-8.8 0-16-7.2-16-16V336c0-8.8 7.2-16 16-16zm-72-72c0-8.8 7.2-16 16-16h16c8.8 0 16 7.2 16 16v16c0 8.8-7.2 16-16 16H120c-8.8 0-16-7.2-16-16V248zm16-96h16c8.8 0 16 7.2 16 16v16c0 8.8-7.2 16-16 16H120c-8.8 0-16-7.2-16-16V168c0-8.8 7.2-16 16-16zm64 96c0-8.8 7.2-16 16-16h16c8.8 0 16 7.2 16 16v16c0 8.8-7.2 16-16 16H200c-8.8 0-16-7.2-16-16V248zm16-96h16c8.8 0 16 7.2 16 16v16c0 8.8-7.2 16-16 16H200c-8.8 0-16-7.2-16-16V168c0-8.8 7.2-16 16-16zm64 96c0-8.8 7.2-16 16-16h16c8.8 0 16 7.2 16 16v16c0 8.8-7.2 16-16 16H280c-8.8 0-16-7.2-16-16V248zm16-96h16c8.8 0 16 7.2 16 16v16c0 8.8-7.2 16-16 16H280c-8.8 0-16-7.2-16-16V168c0-8.8 7.2-16 16-16zm64 96c0-8.8 7.2-16 16-16h16c8.8 0 16 7.2 16 16v16c0 8.8-7.2 16-16 16H360c-8.8 0-16-7.2-16-16V248zm16-96h16c8.8 0 16 7.2 16 16v16c0 8.8-7.2 16-16 16H360c-8.8 0-16-7.2-16-16V168c0-8.8 7.2-16 16-16zm64 96c0-8.8 7.2-16 16-16h16c8.8 0 16 7.2 16 16v16c0 8.8-7.2 16-16 16H440c-8.8 0-16-7.2-16-16V248zm16-96h16c8.8 0 16 7.2 16 16v16c0 8.8-7.2 16-16 16H440c-8.8 0-16-7.2-16-16V168c0-8.8 7.2-16 16-16z"/></svg>
+              </div>
               <div class="text-sm text-gray-50 pb-[2px]"><b>Shift + Delete</b> to delete frame. </div>
               <div class="text-sm text-gray-50 pb-[2px]"><b>Ctrl + Shift + Delete</b> to delete all frames following the current one.</div>
               <div class="text-sm text-gray-50"><b>Shift + Left Arrow/Right Arrow</b> to switch between frames without transition.</div>
@@ -309,10 +294,10 @@ const App = () => {
                     }, 10);
                   }
                 }}/>
-                <button disabled={generating()} class="py-[10px] px-3 my-[10px] text-sm border-outset font-medium text-white bg-[#0349ff] peer-hover:bg-[#0944dd] border-[#0f328f] border-2" onclick={() => {
+                <button disabled={generating()} class="flex items-center py-[10px] px-3 my-[10px] text-sm border-outset font-medium text-white bg-[#0349ff] peer-hover:bg-[#0944dd] border-[#0f328f] border-2" onclick={() => {
                   fileInput.click();
                 }}>
-                  <span class="relative pr-2 top-[-2px]">📁</span>
+                  <span class="relative pr-2 top-[-1px]"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="yellow" stroke="currentColor" stroke-width="0" stroke-linecap="round" stroke-linejoin="round" class="feather feather-folder"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg></span>
                   <span>Select zip</span>
                 </button>
                 <div class="flex items-center px-2 w-fit max-w-[200px] h-[43px] border-2 border-[#777] text-[#333] text-[13px] leading-[1.3] border-l-0 rounded-br-sm rounded-tr-sm break-all">
@@ -337,22 +322,18 @@ const App = () => {
               </select>
               <div class="relative group cursor-pointer">
                 <svg class="ml-2 text-[#777] fill-[antiquewhite]" xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-info"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>
-                <span class="hidden group-hover:inline absolute bg-[antiquewhite] p-1 w-[199px] b-[-50px] right-0 border border-[#777]">Set resize factor to scale images.</span>
+                <span class="hidden group-hover:inline absolute bg-[antiquewhite] p-1 w-[199px] b-[-50px] right-0 border border-[#777]">Set resize factor to scale images and the result.</span>
               </div>
             </div>
-            {/* <select class="p-[10px] border-2 border-solid border-[#777] text-[#555] my-[10px] text-xs rounded-sm font-medium cursor-pointer" value={format()} onchange={(e) => {
-              const { value } = e.target;
-              value && setFormat(value);
-            }}>
-              <option disabled>Select format</option>
-              <option value="webp" selected>WEBP</option>
-              <option value="png">PNG</option>
-            </select> */}
             <button style={{cursor: generating()? 'default': 'pointer'}} disabled={!ss()?.length} class="relative py-[10px] px-2 my-[10px] w-40 h-10 border-[#ef5527] bg-[#f46236] text-white text-sm border-outset border-2 disabled:opacity-70 disabled:cursor-default hover:not-disabled:bg-[#fb3a00] font-medium" onclick={generateAnimation}>
               <div class="absolute left-4 top-2 z-20">Generate animation</div>
               {generating() ? 
               <div class="absolute left-0 top-0 w-full h-full bg-progress-pattern transition-all duration-300 ease animate-progress z-10"></div>: null}
             </button>
+            <details class="w-full text-center pt-1 text-[#333]">
+              <summary class="cursor-pointer">Need help?</summary>
+              <p class="py-1 px-4">Check out the <a class="text-blue-600 underline" target="_blank" href="https://github.com/vegetableman/betamax">README</a>. To report or know more about existing issues, go <a class="text-blue-600 underline" target="_blank" href="https://github.com/vegetableman/betamax/issues/1">here</a>.</p>
+            </details>
             <div>
              {generating() ? <a class="underline text-[blue] cursor-pointer hover:opacity-75" onclick={() => {
               terminatePyodide();
@@ -491,7 +472,6 @@ const styleContent = `
         url("chrome-extension://${chrome.runtime.id}/src/assets/fonts/Inter-Regular.woff")
         format("woff");
   }
-  
   @font-face {
     font-weight: 500;
     font-family: "BTM__Inter";
@@ -501,7 +481,6 @@ const styleContent = `
         url("chrome-extension://${chrome.runtime.id}/src/assets/fonts/Inter-Medium.woff")
         format("woff");
   }
-  
   @font-face {
     font-weight: 600;
     font-family: "BTM__Inter";
@@ -511,7 +490,6 @@ const styleContent = `
         url("chrome-extension://${chrome.runtime.id}/src/assets/fonts/Inter-SemiBold.woff")
         format("woff");
   }
-
   html, body {
     font-family: "BTM__Inter", Helvetica, system-ui;
   }
