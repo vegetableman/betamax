@@ -18,14 +18,16 @@ export const tooltipStyle = `
 export function Tooltip(props) {
   const [showTooltip, toggleTooltip] = createSignal(false);
   const c = children(() => props.children);
-  let tid;
+  let tidIn, tidOut;
   return <>
     <span class="tooltip" onmouseenter={() => {
-      tid && clearTimeout(tid);
-      toggleTooltip(true);
-      tid = setTimeout(() => toggleTooltip(false), 2000);
+      tidIn && clearTimeout(tidIn);
+      tidOut && clearTimeout(tidOut);
+      tidIn = setTimeout(() => toggleTooltip(true), 500);
+      tidOut = setTimeout(() => toggleTooltip(false), 2000);
     }} onmouseleave={() => {
-      tid && clearTimeout(tid); toggleTooltip(false);}} onclick={() => {tid && clearTimeout(tid); toggleTooltip(false);}}>
+      tidIn && clearTimeout(tidIn); tidOut && clearTimeout(tidOut); toggleTooltip(false);}} onclick={() => { 
+        tidIn && clearTimeout(tidIn); tidOut && clearTimeout(tidOut); toggleTooltip(false);}}>
       {c()}
       {showTooltip() && <span class="tooltip__text" style={props.style}>{props.title}</span>}
     </span>

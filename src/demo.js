@@ -8,21 +8,19 @@ const DEMO_HTML =
           <canvas id="anim_target" class="anim_target"></canvas>
         </div>
         <script type="text/javascript">
-          const delay_scale = 0.9;
+          const delayScale = 0.9;
           let timer = null;
 
-          const animate = function(img, timeline, element)
-          {
+          function animate(img, timeline, element) {
             let i = 0;
             let run_time = 0;
             for (let j = 0; j < timeline.length - 1; ++j) {
               run_time += timeline[j].delay;
             }
 
-            const f = function()
-            {
+            function f() {
               const frame = i++ % timeline.length;
-              const delay = timeline[frame].delay * delay_scale;
+              const delay = timeline[frame].delay * delayScale;
               const blits = timeline[frame].blit;
               const ctx = element.getContext('2d');
               for (j = 0; j < blits.length; ++j)
@@ -43,12 +41,11 @@ const DEMO_HTML =
             f();
           }
 
-          function set_animation(img_url, timeline, canvas_id, fallback_id)
-          {
+          function setAnimation(imgUrl, timeline, canvasId) {
             const img = new Image();
             img.onload = function()
             {
-              const canvas = document.getElementById(canvas_id);
+              const canvas = document.getElementById(canvasId);
               if (canvas && canvas.getContext) {
                 const blits = timeline[0].blit[0];
                 canvas.width = blits[2];
@@ -56,11 +53,11 @@ const DEMO_HTML =
                 animate(img, timeline, canvas);
               }
             };
-            img.src = img_url;
+            img.src = imgUrl;
           }
           
           const timeline = JSON.parse('__TIMELINE__PLACEHOLDER__');
-          set_animation("packed_image.__EXTENSION__", timeline, 'anim_target');
+          setAnimation("packed_image.__EXTENSION__", timeline, 'anim_target');
         </script>
       </body>
     </html>

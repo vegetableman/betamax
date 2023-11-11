@@ -63,13 +63,14 @@ chrome.runtime.onMessage.addListener(async (message, sender, sendResponse) => {
     });
     chrome.tabs.sendMessage(message.tabId, { type: message.type, target: 'tab' });
   } else if (message.type === 'stop_capture' || message.type === 'cancel_capture' ||
-    message.type === 'continue_capture') {
+    message.type === 'continue_capture' || message.type === 'set_region') {
     chrome.runtime.sendMessage({
       type: message.type,
       target: 'offscreen',
-      tabId: sender.tab.id
+      tabId: sender.tab.id,
+      payload: message.payload
     });
-  } else if (message.type === 'init_capture' || message.type === 'capture_stopped' || message.type === 'processing_capture') {
-    chrome.tabs.sendMessage(message.tabId, { type: message.type, target: 'tab' });
+  } else if (message.type === 'start_countdown' || message.type === 'capture_stopped' || message.type === 'processing_capture') {
+    chrome.tabs.sendMessage(message.tabId, { type: message.type, target: 'tab', payload: message.payload });
   } 
 });

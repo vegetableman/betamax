@@ -1,394 +1,14 @@
 import "@webcomponents/custom-elements";
-import { children, createEffect, createSignal, onCleanup, onMount } from "solid-js";
+import { For, createEffect, createSignal, onCleanup, onMount } from "solid-js";
 import { customElement } from "solid-element";
 import { parse } from 'tldts';
-import { delay, evenOut } from './utils'
-
-const __BTM_COLOR_VAR = '--btm-bg-color';
-const TITLE_BAR_HEIGHT = 40;
-const MIRROR_FRAME_HEIGHT = 15;
-
-const style = `
-  .btm_window {
-    ${__BTM_COLOR_VAR}: #333;
-    --btm-title-background-color: var(${__BTM_COLOR_VAR});
-    --btm-record-btn-background-color: #f46236;
-    --btm-record-btn-hover-background-color: #f15120;
-    --btm-record-btn-border-color: #ef5527;
-    --btm-stop-btn-background-color: red;
-    --btm-stop-btn-hover-background-color: #ed1212;
-    --btm-btn-color: #fff;
-    --btm-btn-border-color: var(${__BTM_COLOR_VAR});
-    --btm-mirror-background-color: var(${__BTM_COLOR_VAR});
-    --btm-dimension-background-color: var(${__BTM_COLOR_VAR});
-    --btm-countdown-background-color: #33333352;
-    --btm-config-background-color: #333333e3;
-  }
-  .btm_window {
-    font-family: "BTM__Inter", Arial, Helvetica, sans-serif;
-    font-size: 13px;
-  }
-  .btm_window__inner {
-    display: flex;
-    flex-direction: column;
-    position: relative;
-    width: 100%;
-  }
-  .btm_title_bar {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    flex: 0 0 ${TITLE_BAR_HEIGHT}px;
-    background: var(--btm-title-background-color);
-    cursor: move;
-  }
-  .btm_record-btn, .btm_stop-btn {
-    display: flex;
-    align-items: center;
-    padding: 2px 8px 4px 8px;
-    min-height: 20px;
-    background: var(--btm-record-btn-background-color);
-    color: var(--btm-btn-color);
-    box-sizing: content-box;
-    border-width: 2px;
-    border-color: var(--btm-record-btn-border-color);
-    border-style: outset;
-    z-index: 2;
-  }
-  .btm_record-btn:hover {
-    background: var(--btm-record-btn-hover-background-color);
-    cursor: pointer;
-  }
-  .btm_stop-btn {
-    background: var(--btm-stop-btn-background-color);
-    min-width: 45px;
-  }
-  .btm_stop-btn:hover {
-    background: var(--btm-stop-btn-hover-background-color);
-    cursor: pointer;
-  }
-  .btm_record__text {
-    padding-left: 5px;
-    font-family: 'BTM__Inter';
-    font-weight: 500;
-    font-size: 13px;
-  }
-  .btm_stop-btn .btm_record__text {
-    font-weight: 600;
-  }
-  .btm_mirror > .btm_w {
-    position: absolute;
-    left: -15px;
-    top: 0;
-    width: 15px;
-    height: 440px;
-    cursor: w-resize;
-  }
-  .btm_mirror > .btm_w > div {
-    float: right;
-    height: 100%;
-    width: 5px;
-    background: var(--btm-mirror-background-color);
-  }
-  .btm_mirror > .btm_e {
-    position: absolute;
-    right: -15px;
-    top: 0;
-    width: ${MIRROR_FRAME_HEIGHT}px;
-    height: 440px;
-    cursor: e-resize;
-  }
-  .btm_mirror > .btm_e > div {
-    float: left;
-    width: 5px;
-    height: 100%;
-    background: var(--btm-mirror-background-color);
-  }
-  .btm_mirror > .btm_s {
-    position: absolute;
-    bottom: -415px;
-    height: ${MIRROR_FRAME_HEIGHT}px;
-    width: 100%;
-    cursor: s-resize;
-    z-index: 2;
-  }
-  .btm_mirror > .btm_s > div {
-    background: var(--btm-mirror-background-color);
-    height: 5px;
-  }
-  .btm_mirror > .btm_n {
-    position: absolute;
-    top: 0;
-    width: 100%;
-    height: 5px;
-    background: var(--btm-mirror-background-color);
-    cursor: n-resize;
-  }
-  .btm_mirror[data-disabled=true] > * {
-    cursor: default !important;
-  }
-  .btm_mirror > .btm_se {
-    position: absolute;
-    right: -15px;
-    bottom: calc(-355px - ${TITLE_BAR_HEIGHT + 10}px);
-    width: ${MIRROR_FRAME_HEIGHT + 10}px;
-    height: ${MIRROR_FRAME_HEIGHT + 10}px;
-    cursor: se-resize;
-    z-index: 2;
-  }
-  .btm_mirror > .btm_sw {
-    position: absolute;
-    left: -15px;
-    bottom: calc(-355px - ${TITLE_BAR_HEIGHT + 10}px);
-    width: ${MIRROR_FRAME_HEIGHT + 10}px;
-    height: ${MIRROR_FRAME_HEIGHT + 10}px;
-    cursor: sw-resize;
-    z-index: 2;
-  }
-  .btm_mirror > .btm_ne {
-    position: absolute;
-    right: -${MIRROR_FRAME_HEIGHT}px;
-    top: 0;
-    width: ${MIRROR_FRAME_HEIGHT + 10}px;
-    height: ${MIRROR_FRAME_HEIGHT}px;
-    cursor: ne-resize;
-    z-index: 1;
-  }
-  .btm_mirror > .btm_nw {
-    position: absolute;
-    left: -${MIRROR_FRAME_HEIGHT}px;
-    top: 0;
-    width: ${MIRROR_FRAME_HEIGHT + 10}px;
-    height: ${MIRROR_FRAME_HEIGHT + 10}px;
-    cursor: nw-resize;
-    z-index: 1;
-  }
-  .btm_title__timer-wrapper {
-    display: flex;
-    align-items: center;
-    margin-left: -15px;
-  }
-  .btm_title__timer {
-    font-size: 13px;
-    color: var(--btm-btn-color);
-    min-width: 40px;
-    font-weight: 500;
-  }
-  .btm_title__text {
-    position: absolute;
-    left: 45%;
-    font-size: 13px;
-    color: var(--btm-btn-color);
-  }
-  .btm_title__text::after {
-    content: ".";
-    opacity: 0;
-    animation: animate_dots 1s infinite;
-  }
-  @keyframes animate_dots {
-    0% {
-      opacity: 0;
-    }
-    50% {
-      opacity: 1;
-      content: "..";
-    }
-    100% {
-      opacity: 1;
-      content: "...";
-    }
-  }
-  .btm_overlay {
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-    position: absolute;
-    top: ${TITLE_BAR_HEIGHT}px;
-    width: 100%;
-    height: 355px;
-    text-align: center;
-    background: var(--btm-countdown-background-color);
-    color: var(--btm-btn-color);
-    font-size: 50px;
-  }
-  .btm_overlay > span {
-    position: relative;
-    top: -30px;
-  }
-  .btm_processing {
-    font-size: 20px;
-  }
-  .btm_processing > span::after {
-    position: absolute;
-    content: ".";
-    opacity: 0;
-    animation: animate_dots 1s infinite;
-  }
-  .btm_title__close-btn, .btm_title__config-btn, .btm_title__cancel-btn {
-    background: none;
-    border-color: var(${__BTM_COLOR_VAR});
-    color: var(--btm-btn-color);
-    cursor: pointer;
-  }
-  .btm_title__cancel-btn {
-    position: relative;
-    left: -5px;
-    color: red;
-  }
-  .btm_config {
-    position: absolute;
-    top: ${TITLE_BAR_HEIGHT}px;
-    width: 100%;
-    padding-top: 10px;
-    height: 400px;
-    overflow: auto;
-    background: var(--btm-config-background-color);
-    color: var(--btm-btn-color);
-    box-sizing: border-box;
-  }
-  .btm_config__row {
-    display: flex;
-    justify-content: flex-start;
-    padding: 15px 10px 5px 10px;
-  }
-  .btm_config__row--element {
-    flex-direction: column;
-  }
-  .btm_config__row__wrapper > input[type="text"], 
-  .btm_config__row__wrapper > select {
-    width: 100px;
-    padding: 3px;
-    font-size: 13px;
-    background: #3b3b3b;
-    border: 1px solid #858585;
-    color: #ffffff;
-  }
-  .btm_config__row__label {
-    flex-basis: 230px;
-    font-size: 13px;
-  }
-  .btm_config__row__value {
-    padding-left: 2px; 
-    padding-top: 1px;
-  }
-  .btm_config__row--element > .btm_config__row__label {
-    flex-basis: auto;
-    padding-bottom: 10px;
-  }
-  .btm_config__close-btn {
-    position: absolute;
-    top: 5px;
-    right: 7px;
-    font-size: 13px;
-    color: silver;
-    cursor: pointer;
-  }
-  .btm_config__close-btn:hover {
-    color: var(--btm-btn-color);
-  }
-  .btm_dimension {
-    position: absolute;
-    bottom: 10px;
-    left: 20px;
-    padding: 0 5px;
-    background: var(--btm-dimension-background-color);
-    color: var(--btm-btn-color);
-  }
-  .btm_config__row__x {
-    padding: 0 5px;
-    font-size: 13px;
-  }
-  .btm_bottom_bar {
-    display: none;
-    position: absolute;
-    bottom: -445px;
-    right: -5px;
-    align-items: center;
-    justify-content: space-between;
-    flex: 0 0 40px;
-    height: 40px;
-    width: 100%;
-    padding: 0 5px;
-    background: var(--btm-title-background-color);
-    cursor: move;
-  }
-  .btm_config__row--mode {
-    display: flex;
-    align-items: center;
-  }
-  .btm_config__mode-input {
-    margin: 0;
-    cursor: pointer;
-  }
-  .btm_config__mode-label {
-    padding-left: 5px;
-    cursor: pointer;
-  }
-  .btm_config__mode-label--auto {
-    padding-right: 10px;
-  }
-  .btm_config__interval-input {
-    width: 50px;
-  }
-  .btm_config__interval-input:disabled {
-    opacity: 0.5;
-  }
-`;
+import { Resizer, Tooltip, tooltipStyle } from './components';
+import { delay, evenOut } from './utils';
+import { __BTM_COLOR_VAR, TITLE_BAR_HEIGHT, MIRROR_FRAME_HEIGHT, style } from './styles';
 
 let __BTM_COLOR_VALUE;
 let __BTM_DIMENSION_OBJ;
 let __BTM_POSITION_OBJ;
-
-function Resizer(props) {
-  const c = children(() => props.children);
-  const { frameRef, onResize, onResizeEnd } = props;
-  const [mousePosition, setMousePosition] = createSignal({ x: 0, y: 0 });
-  const [dir, setDir] = createSignal('');
-  const [startWidth, setStartWidth] = createSignal(0);
-  const [startLeft, setStartLeft] = createSignal(0);
-  const [isResizing, setResizing] = createSignal(false);
-
-  function initResize(e) {
-    if (props.disabled) return;
-    e.preventDefault();
-    e.stopPropagation();
-    setMousePosition({x: e.clientX, y: e.clientY});
-    setStartWidth(frameRef.offsetWidth);
-    setStartLeft(frameRef.getBoundingClientRect().left);
-    setResizing(true);
-    setDir(e.currentTarget.dataset.dir);
-    document.addEventListener('mousemove', resize);
-    document.addEventListener('mouseup', stopResize);
-  }
-
-  function resize(e) {
-    if (!isResizing()) return;
-    const { x, y } = mousePosition();
-    const { clientX, clientY } = e;
-    const deltaX = clientX - x;
-    const deltaY = clientY - y;
-    if (dir() === 'e' || dir() === 'w') {
-      onResize(dir(), startWidth(), deltaX, deltaY, startLeft());
-    } else if (dir() === 's' || dir() === 'n') {
-      onResize(dir(), startWidth(), deltaX, deltaY);
-      setMousePosition({x: clientX, y: clientY});
-    } else if (dir() === 'se' || dir() === 'sw' || dir() === 'ne' || dir() === 'nw') {
-      onResize(dir(), startWidth(), deltaX, deltaY, startLeft());
-      setMousePosition({x: mousePosition().x, y: clientY});
-    }
-  }
-
-  function stopResize() {
-    setResizing(false);
-    onResizeEnd();
-  }
-
-  [].slice.call(c()).forEach(el => {
-    el.addEventListener('mousedown', initResize);
-  });
-
-  return <>{c()}</>
-}
 
 const DEFAULT_FRAME_RATE = 30;
 const MIN_WIDTH = 200;
@@ -398,11 +18,13 @@ const __BTM_FRAME_RATE_KEY = '__btm_frame_rate';
 const __BTM_WINDOW_COLOR_KEY = '__btm_window_color';
 const __BTM_WINDOW_POSITION_KEY = '__btm_window_position';
 const __BTM_WINDOW_DIMENSION_KEY = '__btm_window_dimension';
+const __BTM_INTRO_KEY = '__btm_show_intro';
 
 let startCountdown;
 
 customElement("btm-frame", {}, () => {
   let frame;
+  const dpr = window.devicePixelRatio;
   const [mousePosition, setMousePosition] = createSignal({ x: 0, y: 0 });
   const [elementOffset, setElementOffset] = createSignal({ 
     x: __BTM_POSITION_OBJ?.x ?? window.innerWidth/2 - MIN_WIDTH, 
@@ -420,11 +42,13 @@ customElement("btm-frame", {}, () => {
   const [selectedEl, setSelectedEl] = createSignal(null);
   const [dimension, setDimension] = createSignal({
     width: __BTM_DIMENSION_OBJ?.width ?? 400, 
-    height:__BTM_DIMENSION_OBJ?.height ?? (400 + FRAME_SIZE)
+    height:__BTM_DIMENSION_OBJ?.height ?? (450 + FRAME_SIZE)
   });
   const [time, setTime] = createSignal('00:00');
-  const [countDown, setCountDown] = createSignal(3);
+  const [countDown, setCountDown] = createSignal(null);
   const [color, setColor] = createSignal(__BTM_COLOR_VALUE);
+  const [offset, setOffset] = createSignal({left: 0, top: 0, width: 0, height: 0});
+  const [showIntro, toggleIntro] = createSignal(false);
 
   const handleMouseDown = (event) => {
     if (isRecording() || isResizing()) {
@@ -501,42 +125,48 @@ customElement("btm-frame", {}, () => {
     }
   }
 
-  function initCapture() {
-    const r = frame.getBoundingClientRect();
+  function calculateRegion(displaySurface) {
     const dpr = window.devicePixelRatio;
+    const offsetTop = dpr > 1 && displaySurface === 'window' ? (TITLE_BAR_HEIGHT * dpr) + ((window.outerHeight - window.innerHeight) * dpr) 
+    : dpr > 1 ? (screen.height - window.innerHeight) + TITLE_BAR_HEIGHT : (screen.height - window.innerHeight);
+    const captureDpr = displaySurface === 'window' ? dpr : 1;
+    return {
+      left: evenOut(elementOffset().x * captureDpr) + offset().left,
+      top: evenOut((elementOffset().y  * captureDpr) + offsetTop, -1) + offset().top, 
+      width: evenOut(dimension().width * captureDpr) + offset().width,
+      height: evenOut((dimension().height - FRAME_SIZE) * captureDpr) - 2 + offset().height
+    }
+  }
 
-    const region = {
-      left: evenOut(elementOffset().x) * dpr,
-      top: evenOut(elementOffset().y, -1) * dpr,
-      width: evenOut(dimension().width) * dpr - 2,
-      height: evenOut(dimension().height - FRAME_SIZE) * dpr - 2,
-      window: {innerHeight: evenOut(window.innerHeight)}
-    };
-
-    console.log('region:', region);
-
+  function initCapture() {
     const loc = parse(document.location.href);
     const messageToBgScript = {
       type: 'start_capture',
       target: 'background',
       payload: {
-        region, 
         frameRate: frameRate(),
         fileName: `betamax_${loc.domainWithoutSuffix}_${new Date().toLocaleString('sv-SE', { hour12: false}).replaceAll(/\-|:/g, '').replace(' ', '_')}.zip`
       }
     };
-
     chrome.runtime.sendMessage(messageToBgScript);
   }
 
   let timerId;
-  startCountdown = async () => {
-    setTime('00:00');
-    setCountDown(3);
+  startCountdown = async (payload) => {
     setIsStarting(true);
+    setTime('00:00');
+    await delay(1000);
+    setCountDown(3);
     await new Promise((resolve) => {
       const id = setInterval(() => {
         if (countDown() === 1) {
+          chrome.runtime.sendMessage({
+            type: 'set_region',
+            target: 'background',
+            payload: {
+              region: calculateRegion(payload.displaySurface)
+            }
+          });
           clearInterval(id);
           resolve(true);
         }
@@ -556,6 +186,7 @@ customElement("btm-frame", {}, () => {
   };
 
   function reset() {
+    setCountDown(null)
     clearInterval(timerId);
     setIsRecording(false);
     totalSeconds = 0;
@@ -607,6 +238,10 @@ customElement("btm-frame", {}, () => {
     if (data && data[__BTM_FRAME_RATE_KEY]) {
       setFrameRate(data[__BTM_FRAME_RATE_KEY]);
     }
+    const intro = await chrome.storage.local.get(__BTM_INTRO_KEY);
+    if (!(intro && intro[__BTM_INTRO_KEY])) {
+      toggleIntro(true);
+    }
     setupBottomTitleBar();
   });
 
@@ -631,6 +266,9 @@ customElement("btm-frame", {}, () => {
     } catch {
       return;
     }
+    if (!el) {
+      return;
+    }
     const rect = el.getBoundingClientRect();
     const selectionOffset = 5;
     setElementOffset({
@@ -638,7 +276,6 @@ customElement("btm-frame", {}, () => {
       y: rect.top - TITLE_BAR_HEIGHT - selectionOffset,
     });
     let h;
-    console.log(rect.bottom, window.innerHeight);
     if (rect.bottom >= window.innerHeight) {
       h = rect.height + FRAME_SIZE + selectionOffset;
     } else {
@@ -651,26 +288,34 @@ customElement("btm-frame", {}, () => {
 
   const controls = () => { 
     return (<> 
-      {!isRecording() ? 
-        <button title="Record (Alt + Shift + R)" class="btm_record-btn" onClick={(e) => {
-          e.preventDefault();
-          initCapture();
-        }} onMouseDown={(e) => e.stopPropagation()}>
-        <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-circle"><circle cx="12" cy="12" r="10"></circle></svg>
-        <span class="btm_record__text">Record</span>
-      </button>: null}
-      {isRecording() ? <button title="Stop (Alt + Shift + R)" class="btm_stop-btn" onClick={() => {
+      {!isRecording() ?
+        <Tooltip title="Record (Alt + Shift + R)" style={{bottom:'-33px', left: '3px'}}>
+          <button class="btm_record-btn" onClick={(e) => {
+            e.preventDefault();
+            initCapture();
+          }} onMouseDown={(e) => e.stopPropagation()}>
+          <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-circle"><circle cx="12" cy="12" r="10"></circle></svg>
+          <span class="btm_record__text">Record</span>
+        </button>
+      </Tooltip>
+      : null}
+      {isRecording() ? <Tooltip title="Stop (Alt + Shift + R)" style={{bottom: showBottomTitleBar() ? '-33px': '38px', left: '3px'}}>
+        <button class="btm_stop-btn" onClick={() => {
         document.dispatchEvent(stopEvent);
       }} onMouseDown={(e) => e.stopPropagation()}>
         <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-square"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect></svg>
         <span class="btm_record__text">Stop</span>
-      </button>: null}
+      </button></Tooltip>: null}
       {isRecording() ?
         <span class="btm_title__timer-wrapper">
-          <button title="Cancel (Alt + Shift + C)" class="btm_title__cancel-btn"  onclick={() => {
-              cancelCapture();
-              chrome.runtime.sendMessage({type: 'cancel_capture', target: 'background'});
-          }} onMouseDown={(e) => e.stopPropagation()}>✖</button>
+          <Tooltip title="Cancel (Alt + Shift + C)" style={{bottom: showBottomTitleBar() ? '-37px': '34px', left: '3px'}}>
+            <button class="btm_title__cancel-btn"  onclick={() => {
+                cancelCapture();
+                chrome.runtime.sendMessage({type: 'cancel_capture', target: 'background'});
+            }} onMouseDown={(e) => e.stopPropagation()}>
+              <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" class="feather feather-x"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+            </button>
+          </Tooltip>
           <span class="btm_title__timer">
             {time()}
           </span>
@@ -679,15 +324,30 @@ customElement("btm-frame", {}, () => {
       {isStarting() ? <span class="btm_title__text">Starting</span>: null}
       {isStopping() && !isProcessing() ? <span class="btm_title__text">Stopping</span>: null}
       <div style="z-index: 2;">
-        <button title="Settings" class="btm_title__config-btn" disabled={isRecording()} onclick={() => {
-          toggleConfig((c) => !c);
-        }} onMouseDown={(e) => e.stopPropagation()}>⚙</button>
-        <button title="Close" class="btm_title__close-btn" disabled={isRecording()} onclick={() => {
-          document.querySelector('btm-frame').remove();
-        }} onMouseDown={(e) => e.stopPropagation()}>✖</button>
+        <Tooltip title="Settings" style={{bottom: showBottomTitleBar() || !isRecording() ? '-41px': '31px', left: '-20px'}}>
+          <button class="btm_title__config-btn" disabled={isRecording()} onclick={() => {
+            toggleConfig((c) => !c);
+          }} onMouseDown={(e) => e.stopPropagation()}>
+            <svg xmlns="http://www.w3.org/2000/svg" width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-settings"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
+          </button>
+        </Tooltip>
+        <Tooltip title="Close" style={{bottom: showBottomTitleBar() || !isRecording() ? '-41px': '31px', left: '-20px'}}>
+          <button class="btm_title__close-btn" disabled={isRecording()} onclick={() => {
+            document.querySelector('btm-frame').remove();
+          }} onMouseDown={(e) => e.stopPropagation()}>
+            <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" class="feather feather-x"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+          </button>
+        </Tooltip>
       </div>
   </>);
   };
+
+  function updateOffset(dir) {
+    return (e) => {
+      offset()[dir] = parseInt(e.target.value);
+      setOffset(offset());
+    }
+  }
 
   return (
     <div
@@ -704,13 +364,55 @@ customElement("btm-frame", {}, () => {
       }}
     >
       <style>{style}</style>
+      <style>{tooltipStyle}</style>
       <div class="btm_window__inner">
         <div class="btm_title_bar" onMouseDown={handleMouseDown}>
           {controls()}
         </div>
-        {isStarting() || isProcessing() ? <div style={{height: dimension().height - FRAME_SIZE + 'px'}}  classList={{btm_overlay: true, btm_processing: isProcessing()}}>
-          <span>{isProcessing() ? 'Processing Captures': countDown()}</span>
+        {isStarting() || isProcessing() ? <div style={{height: dimension().height + (showBottomTitleBar() ? 0 : -FRAME_SIZE) + 'px'}}  classList={{btm_overlay: true, btm_processing: isProcessing() || !countDown()}}>
+          <span>{isProcessing() ? 'Processing Captures': countDown() ? countDown(): 'Starting Countdown'}</span>
         </div>: null}
+        {showIntro() ? 
+          <div class="btm_intro" style={{height: dimension().height - FRAME_SIZE + 'px'}}>
+            <div class="btm_intro__header">
+              <h3>Chrome Tab</h3>
+              <h3 classList={{selected: dpr > 1}}>
+                Window
+                <div class="btm_intro__header__indicator"></div>
+              </h3>
+              <h3 classList={{selected: dpr === 1, 'btm_intro__header--screen': true}}>
+                Entire Screen
+                <div class="btm_intro__header__indicator"></div>
+              </h3>
+              {dpr > 1 ? <div class="btm_intro__arrow">
+                <div class="point"></div>
+                <div class="curve"></div>
+              </div> : 
+              <div class="btm_intro__arrow btm_intro__screen-arrow">
+                <div class="point"></div>
+                <div class="curve"></div>
+              </div>}
+            </div>
+            <ul class="btm_intro__list">
+              <For each={dpr > 1 ? [1, 2, 3, 4, 5, 6]: [1]}>{(item) =>
+                <li>
+                </li>
+              }</For>
+            </ul>
+            <div class="btm_intro__message">
+              <p>
+                Based on your display, it's recommended that you select the default tab <b>{dpr > 1 ? "Window": "Entire Screen"}</b> on <button class="btm_record-intro-btn btm_record-btn">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-circle"><circle cx="12" cy="12" r="10"></circle></svg>
+                  <span class="btm_record__text">Record</span> 
+                </button> to capture the current tab.
+              </p> 
+              <p>Other choices may yield inaccurate or low-resolution captures.</p>
+              <button class="btm_intro__ok" onclick={() => {
+                toggleIntro(false);
+                chrome.storage.local.set({[__BTM_INTRO_KEY]: "1"});
+              }}>Got it</button>
+            </div>
+          </div>: null}
         {showConfig() ? <div class="btm_config" style={{height: dimension().height + 'px'}}>
           <div class="btm_config__row">
               <span class="btm_config__row__label">Frame rate: </span>
@@ -777,9 +479,33 @@ customElement("btm-frame", {}, () => {
                 }}/>
               </span>
           </div>
+          <div class="btm_config__row btm_config__row--element">
+              <span class="btm_config__row__label">
+                Add offset to adjust the captured result
+                <span class="btm_config__row__tooltip">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-help-circle">
+                    <circle cx="12" cy="12" r="10"></circle><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"></path>
+                    <line x1="12" y1="17" x2="12.01" y2="17"></line>
+                  </svg>
+                  <span class="btm_config__row__tooltip_text">Set values ranging from -ve to +ve if you notice inaccurate cropping around the boundaries of the captured frame.</span>
+                </span>:
+              </span>
+              <span class="btm_config__row__wrapper">
+                <div class="btm_config__region" style={{width: 150 + 'px', height: Math.round(150/(dimension().width/dimension().height)) + 'px'}}>
+                  <input type="text" class="btm_config__region--left" value={offset().left} onchange={updateOffset('left')}/>
+                  <input type="text" class="btm_config__region--top" value={offset().top} onchange={updateOffset('top')}/>
+                  <div class="btm_config__region--center">
+                    <input type="text" class="btm_config__region--width" value={offset().width} onchange={updateOffset('width')}/>x
+                    <input type="text" class="btm_config__region--height" value={offset().height} onchange={updateOffset('height')}/>
+                  </div>
+                </div>
+              </span>
+          </div>
           <span title="Close" class="btm_config__close-btn" onclick={() => {
             toggleConfig((c) => !c);
-          }}>✖</span>
+          }}>
+            <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" class="feather feather-x"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+          </span>
         </div> : null}
         <div class="btm_mirror" data-disabled={isRecording()}>
           <Resizer disabled={isRecording()} frameRef={frame} onResize={(dir, width, deltaX, deltaY, startLeft) => {
@@ -886,8 +612,8 @@ chrome.runtime.onMessage.addListener(async (message) => {
     }
     const frameEl = document.createElement('btm-frame');
     document.body.appendChild(frameEl);
-  } else if (message.type === 'init_capture') {
-    startCountdown();
+  } else if (message.type === 'start_countdown') {
+    startCountdown(message.payload);
   } else if (message.type === 'capture_stopped') {
     document.dispatchEvent(cancelEvent);
   } else if (message.type === 'processing_capture') {
