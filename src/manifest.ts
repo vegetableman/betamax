@@ -11,14 +11,16 @@ const [major, minor, patch, label = "0"] = packageJson.version
 const manifest = defineManifest(async () => ({
   manifest_version: 3,
   name: packageJson.displayName ?? packageJson.name,
-  version: `${major}.${minor}.${patch}.${label}`,
+  version: `${major}.${minor}.${patch}`,
   description: packageJson.description,
   background: { service_worker: "src/pages/background/index.ts"},
   action: {
     default_icon: "icons/34x34.png"
   },
   icons: {
-    "128": "icons/128x128.png",
+    "16": "icons/16x16.png",
+    "48": "icons/48x48.png",
+    "128": "icons/128x128.png"
   },
   content_scripts: [
     {
@@ -29,7 +31,7 @@ const manifest = defineManifest(async () => ({
   ],
   web_accessible_resources: [
     {
-      resources: ["src/assets/fonts/**", "src/pyodide.worker.js", 'src/pyodide/**'],
+      resources: ["src/assets/fonts/**", "src/assets/img/**", "src/pyodide.worker.js", 'src/pyodide/**'],
       matches: ["*://*/*"],
     },
   ],
@@ -47,8 +49,7 @@ const manifest = defineManifest(async () => ({
     "tabs",
     "storage",
     "scripting",
-    "offscreen",
-    "tabCapture"
+    "offscreen"
   ],
   host_permissions: [
     "http://*/*",
