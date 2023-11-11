@@ -1,11 +1,13 @@
+/* eslint-disable tailwindcss/no-custom-classname */
+
 import { children, createSignal } from "solid-js";
 
 export const tooltipStyle = `
-  .tooltip {
+  .btm_tooltip {
     position: relative;
     z-index: 2;
   }
-  .tooltip__text {
+  .btm_tooltip__text {
     position: absolute;
     width: max-content;
     font-size: 11px;
@@ -20,16 +22,16 @@ export function Tooltip(props) {
   const c = children(() => props.children);
   let tidIn, tidOut;
   return <>
-    <span class="tooltip" onmouseenter={() => {
+    <span class="btm_tooltip" onMouseEnter={() => {
       tidIn && clearTimeout(tidIn);
       tidOut && clearTimeout(tidOut);
       tidIn = setTimeout(() => toggleTooltip(true), 500);
       tidOut = setTimeout(() => toggleTooltip(false), 2000);
-    }} onmouseleave={() => {
-      tidIn && clearTimeout(tidIn); tidOut && clearTimeout(tidOut); toggleTooltip(false);}} onclick={() => { 
-        tidIn && clearTimeout(tidIn); tidOut && clearTimeout(tidOut); toggleTooltip(false);}}>
+    }} onMouseLeave={() => {
+      tidIn && clearTimeout(tidIn); tidOut && clearTimeout(tidOut); toggleTooltip(false);}} onClick={() => { 
+      tidIn && clearTimeout(tidIn); tidOut && clearTimeout(tidOut); toggleTooltip(false);}}>
       {c()}
-      {showTooltip() && <span class="tooltip__text" style={props.style}>{props.title}</span>}
+      {showTooltip() && <span class="btm_tooltip__text" style={props.style}>{props.title}</span>}
     </span>
   </>;
 }

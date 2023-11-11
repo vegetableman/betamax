@@ -1,35 +1,35 @@
 let recorder;
-let data = [];
+// eslint-disable-next-line no-undef
 let zip = new JSZip();
 let isCancelled = false;
 let continueCapture = false;
 let tabId;
 let region;
 
-chrome.runtime.onMessage.addListener(async (message, sender, sendResponse) => {
+chrome.runtime.onMessage.addListener(async (message) => {
   if (message.target !== 'offscreen') {
     return;
   }
   tabId = message.tabId;
   switch (message.type) {
-    case 'start_capture':
-      startRecording(message.data);
-      break;
-    case 'stop_capture':
-      stopRecording();
-      break;
-    case 'continue_capture':
-      continueCapture = true;
-      break;
-    case 'cancel_capture':
-      isCancelled = true;
-      stopRecording();
-      break;
-    case 'set_region':
-      region = message.payload.region;
-      break;
-    default:
-      throw new Error('Unrecognized message:', message.type);
+  case 'start_capture':
+    startRecording(message.data);
+    break;
+  case 'stop_capture':
+    stopRecording();
+    break;
+  case 'continue_capture':
+    continueCapture = true;
+    break;
+  case 'cancel_capture':
+    isCancelled = true;
+    stopRecording();
+    break;
+  case 'set_region':
+    region = message.payload.region;
+    break;
+  default:
+    throw new Error('Unrecognized message:', message.type);
   }
 });
 
@@ -86,7 +86,7 @@ function startMediaRecorder (media, {mimeType, bitrate, frameRate, fileName}) {
     let paintCount = 0;
 
     const processCapture = async () => {
-      now = performance.now().toFixed(3);
+      const now = performance.now().toFixed(3);
       if (startTime === 0.0) {
         startTime = now;
       }
@@ -110,6 +110,7 @@ function startMediaRecorder (media, {mimeType, bitrate, frameRate, fileName}) {
       });
     }
 
+    let vIntervalId;
     if (!isCancelled) {
       chrome.runtime.sendMessage({type: 'processing_capture', target: 'background', tabId});
       videoElement.addEventListener('loadeddata', () => {
@@ -169,6 +170,7 @@ function startImageCapture(media, {frameRate, fileName}) {
     imageCapture.track && imageCapture.track.readyState === 'live' && imageCapture.grabFrame().then((bitmap) => {
       times.push(now);
       bitmaps.push(createImageBitmap(bitmap, region.left, region.top, region.width, region.height));
+    // eslint-disable-next-line @typescript-eslint/no-empty-function
     }).catch(() => {});
   }, 1000 / frameRate);
 }
@@ -180,6 +182,7 @@ async function startRecording(data) {
     return;
   }
 
+  // eslint-disable-next-line no-undef
   const controller = new CaptureController();
   try {
     isOpen = true;

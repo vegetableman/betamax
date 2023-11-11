@@ -10,15 +10,15 @@ chrome.action.onClicked.addListener(async function(tab) {
   chrome.tabs.sendMessage(tab.id, { type: 'view_frame', target: 'tab' });
 });
 
-chrome.runtime.onMessage.addListener(async (message, sender, sendResponse) => {
+chrome.runtime.onMessage.addListener(async (message, sender) => {
   if (message.target !== 'background') {
     return;
   }
 
   if (message.type === 'start_capture') {
     const existingContexts = await chrome.runtime
-    // @ts-expect-error
-    .getContexts({});
+    // @ts-expect-error new api
+      .getContexts({});
     
     const offscreenDocument = existingContexts.find(
       (c) => c.contextType === 'OFFSCREEN_DOCUMENT'
@@ -27,7 +27,7 @@ chrome.runtime.onMessage.addListener(async (message, sender, sendResponse) => {
     if (!offscreenDocument) {
       try {
         // Create an offscreen document.
-        // @ts-expect-error
+        // @ts-expect-error new api
         await chrome.offscreen.createDocument({
           url: 'src/offscreen.html',
           reasons: ['DISPLAY_MEDIA', 'BLOBS'],
@@ -48,7 +48,7 @@ chrome.runtime.onMessage.addListener(async (message, sender, sendResponse) => {
     });
   } else if (message.type === 'remove_document') {
     try {
-      // @ts-expect-error
+      // @ts-expect-error offscreen is not part of type yet.
       await chrome.offscreen.closeDocument();
     } catch(error) {
       console.error('Error in closeDocument', error);

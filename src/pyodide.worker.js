@@ -1,5 +1,6 @@
 async function processImages(data) {
   const {screenshots: images, times, format, resizeFactor, packingMode, tolerance, allocation} = data.payload;
+  // eslint-disable-next-line no-undef
   await pyodide.runPythonAsync(`
     # Copyright (c) 2012, Sublime HQ Pty Ltd
     # All rights reserved.
@@ -322,32 +323,43 @@ async function processImages(data) {
       print(f"{exception_str}")
   `)
 
-  const buffer = pyodide.globals.get('buffer_content').toJs();
-  const timeline = JSON.parse(pyodide.globals.get('timeline').toString().replaceAll("'", '"'));
+  // eslint-disable-next-line no-undef
+  const buffer = pyodide
+    .globals.get('buffer_content').toJs();
+  const timeline = JSON.parse(
+  // eslint-disable-next-line no-undef
+    pyodide
+      .globals.get('timeline').toString().replaceAll("'", '"'));
   const image = new Blob([buffer], { type: `image/${format}` });
 
   self.postMessage({ done: true, payload: {image, timeline} });
-  pyodide.runPython('import sys; import gc; sys.modules.clear(); gc.collect();');
+  // eslint-disable-next-line no-undef
+  pyodide
+    .runPython('import sys; import gc; sys.modules.clear(); gc.collect();');
 }
 
 onmessage = async function (e) {
   switch (e.data.msg) {
-    case 'load': {
-      // Import Webassembly script
-      self.importScripts(e.data.payload.pyodide);
-      if (!loadPyodide.inProgress) {
-        self.pyodide = await loadPyodide();
-      }
-      await pyodide.loadPackage(e.data.payload.packages)
-      self.postMessage({ done: true });
-      break
+  case 'load': {
+    // Import Webassembly script
+    self.importScripts(e.data.payload.pyodide);
+    // eslint-disable-next-line no-undef
+    if (!loadPyodide.inProgress) {
+      // eslint-disable-next-line no-undef
+      self.pyodide = await loadPyodide();
     }
-    case 'processImages':
-      console.log = function (message) {
-        self.postMessage({ done: false, payload: {message} });
-      };
-      return processImages(e.data)
-    default:
-      break
+    // eslint-disable-next-line no-undef
+    await pyodide
+      .loadPackage(e.data.payload.packages)
+    self.postMessage({ done: true });
+    break
+  }
+  case 'processImages':
+    console.log = function (message) {
+      self.postMessage({ done: false, payload: {message} });
+    };
+    return processImages(e.data)
+  default:
+    break
   }
 }

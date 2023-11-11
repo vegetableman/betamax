@@ -6,10 +6,9 @@
   },
   "extends": [
     "eslint:recommended",
-    "plugin:solid/recommended",
+    "plugin:solid/typescript",
     "plugin:@typescript-eslint/recommended",
-    "plugin:tailwindCSS/recommended",
-    "plugin:prettier/recommended",
+    "plugin:tailwindcss/recommended"
   ],
   "parser": "@typescript-eslint/parser",
   "parserOptions": {

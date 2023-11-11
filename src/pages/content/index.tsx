@@ -1,3 +1,5 @@
+/* eslint-disable tailwindcss/no-custom-classname */
+
 import "@webcomponents/custom-elements";
 import { For, createEffect, createSignal, onCleanup, onMount } from "solid-js";
 import { customElement } from "solid-element";
@@ -131,7 +133,7 @@ customElement("btm-frame", {}, () => {
   function calculateRegion(displaySurface) {
     const dpr = window.devicePixelRatio;
     const offsetTop = dpr > 1 && displaySurface === 'window' ? (TITLE_BAR_HEIGHT * dpr) + ((window.outerHeight - window.innerHeight) * dpr) 
-    : dpr > 1 ? (screen.height - window.innerHeight) + TITLE_BAR_HEIGHT : (screen.height - window.innerHeight);
+      : dpr > 1 ? (screen.height - window.innerHeight) + TITLE_BAR_HEIGHT : (screen.height - window.innerHeight);
     const captureDpr = displaySurface === 'window' ? dpr : 1;
     return {
       left: evenOut(elementOffset().x * captureDpr) + offset().left,
@@ -217,7 +219,7 @@ customElement("btm-frame", {}, () => {
     setIsProcessing(false);
   }
 
-  createEffect(async () => {
+  createEffect(() => {
     if (!color()) {
       return;
     }
@@ -300,55 +302,56 @@ customElement("btm-frame", {}, () => {
             e.preventDefault();
             initCapture();
           }} onMouseDown={(e) => e.stopPropagation()}>
-          <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-circle"><circle cx="12" cy="12" r="10"></circle></svg>
-          <span class="btm_record__text">Record</span>
-        </button>
-      </Tooltip>
-      : null}
+            <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-circle"><circle cx="12" cy="12" r="10" /></svg>
+            <span class="btm_record__text">Record</span>
+          </button>
+        </Tooltip>
+        : null}
       {isRecording() ? <Tooltip title="Stop (Alt + Shift + R)" style={{bottom: showBottomTitleBar() ? '-33px': '38px', left: '3px'}}>
         <button class="btm_stop-btn" onClick={() => {
-        document.dispatchEvent(stopEvent);
-      }} onMouseDown={(e) => e.stopPropagation()}>
-        <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-square"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect></svg>
-        <span class="btm_record__text">Stop</span>
-      </button></Tooltip>: null}
+          document.dispatchEvent(stopEvent);
+        }} onMouseDown={(e) => e.stopPropagation()}>
+          <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-square"><rect x="3" y="3" width="18" height="18" rx="2" ry="2" /></svg>
+          <span class="btm_record__text">Stop</span>
+        </button></Tooltip>: null}
       {isRecording() ?
         <span class="btm_title__timer-wrapper">
           <Tooltip title="Cancel (Alt + Shift + C)" style={{bottom: showBottomTitleBar() ? '-37px': '34px', left: '3px'}}>
-            <button class="btm_title__cancel-btn"  onclick={() => {
-                cancelCapture();
-                chrome.runtime.sendMessage({type: 'cancel_capture', target: 'background'});
+            <button class="btm_title__cancel-btn"  onClick={() => {
+              cancelCapture();
+              chrome.runtime.sendMessage({type: 'cancel_capture', target: 'background'});
             }} onMouseDown={(e) => e.stopPropagation()}>
-              <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" class="feather feather-x"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+              <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" class="feather feather-x"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
             </button>
           </Tooltip>
           <span class="btm_title__timer">
             {time()}
           </span>
         </span>: 
-      null}
+        null}
       {isStarting() ? <span class="btm_title__text">Starting</span>: null}
       {isStopping() && !isProcessing() ? <span class="btm_title__text">Stopping</span>: null}
-      <div style="z-index: 2;">
+      <div style={{"z-index":"2"}}>
         <Tooltip title="Settings" style={{bottom: showBottomTitleBar() || !isRecording() ? '-41px': '31px', left: '-20px'}}>
-          <button class="btm_title__config-btn" disabled={isRecording()} onclick={() => {
+          <button class="btm_title__config-btn" disabled={isRecording()} onClick={() => {
             toggleConfig((c) => !c);
           }} onMouseDown={(e) => e.stopPropagation()}>
-            <svg xmlns="http://www.w3.org/2000/svg" width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-settings"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
+            <svg xmlns="http://www.w3.org/2000/svg" width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-settings"><circle cx="12" cy="12" r="3" /><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z" /></svg>
           </button>
         </Tooltip>
         <Tooltip title="Close" style={{bottom: showBottomTitleBar() || !isRecording() ? '-41px': '31px', left: '-20px'}}>
-          <button class="btm_title__close-btn" disabled={isRecording()} onclick={() => {
+          <button class="btm_title__close-btn" disabled={isRecording()} onClick={() => {
             document.querySelector('btm-frame').remove();
           }} onMouseDown={(e) => e.stopPropagation()}>
-            <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" class="feather feather-x"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+            <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" class="feather feather-x"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
           </button>
         </Tooltip>
       </div>
-  </>);
+    </>);
   };
 
   function updateOffset(dir) {
+    // eslint-disable-next-line solid/reactivity
     return (e) => {
       offset()[dir] = parseInt(e.target.value);
       setOffset(offset());
@@ -384,36 +387,35 @@ customElement("btm-frame", {}, () => {
               <h3>Chrome Tab</h3>
               <h3 classList={{selected: dpr > 1}}>
                 Window
-                <div class="btm_intro__header__indicator"></div>
+                <div class="btm_intro__header__indicator" />
               </h3>
               <h3 classList={{selected: dpr === 1, 'btm_intro__header--screen': true}}>
                 Entire Screen
-                <div class="btm_intro__header__indicator"></div>
+                <div class="btm_intro__header__indicator" />
               </h3>
               {dpr > 1 ? <div class="btm_intro__arrow">
-                <div class="point"></div>
-                <div class="curve"></div>
+                <div class="point" />
+                <div class="curve" />
               </div> : 
-              <div class="btm_intro__arrow btm_intro__screen-arrow">
-                <div class="point"></div>
-                <div class="curve"></div>
-              </div>}
+                <div class="btm_intro__arrow btm_intro__screen-arrow">
+                  <div class="point" />
+                  <div class="curve" />
+                </div>}
             </div>
             <ul class="btm_intro__list">
-              <For each={dpr > 1 ? [1, 2, 3, 4, 5, 6]: [1]}>{(item) =>
-                <li>
-                </li>
+              <For each={dpr > 1 ? [1, 2, 3, 4, 5, 6]: [1]}>{() =>
+                <li />
               }</For>
             </ul>
             <div class="btm_intro__message">
               <p>
                 Based on your display, it's recommended that you select the default tab <b>{dpr > 1 ? "Window": "Entire Screen"}</b> on <button class="btm_record-intro-btn btm_record-btn">
-                  <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-circle"><circle cx="12" cy="12" r="10"></circle></svg>
+                  <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-circle"><circle cx="12" cy="12" r="10" /></svg>
                   <span class="btm_record__text">Record</span> 
                 </button> to capture the current tab.
               </p> 
               <p>Other choices may yield inaccurate or low-resolution captures.</p>
-              <button class="btm_intro__ok" onclick={() => {
+              <button class="btm_intro__ok" onClick={() => {
                 toggleIntro(false);
                 chrome.storage.local.set({[__BTM_INTRO_KEY]: "1"});
               }}>Got it</button>
@@ -421,69 +423,68 @@ customElement("btm-frame", {}, () => {
           </div>: null}
         {showConfig() ? <div class="btm_config" style={{height: dimension().height + 'px'}}>
           <div class="btm_config__row">
-              <span class="btm_config__row__label">Frame rate: </span>
-              <span class="btm_config__row__wrapper">
-                <input class="btm_config__interval-input" type="text" style="width: 50px;" value={`${frameRate()}`} onchange={(e) => {
-                  let {value} = e.target;
-                  let v = parseInt(value);
-                  !Number.isNaN(v) && v > 0 && setFrameRate(v);
-                  chrome.storage.sync.set({[__BTM_FRAME_RATE_KEY]: v});
-                }}/>
-              </span>
+            <span class="btm_config__row__label">Frame rate: </span>
+            <span class="btm_config__row__wrapper">
+              <input class="btm_config__interval-input" type="text" style={{"width":"50px"}} value={`${frameRate()}`} onChange={(e) => {
+                const {value} = e.target;
+                const v = parseInt(value);
+                !Number.isNaN(v) && v > 0 && setFrameRate(v);
+                chrome.storage.sync.set({[__BTM_FRAME_RATE_KEY]: v});
+              }}/>
+            </span>
           </div>
           <div class="btm_config__row">
-              <span class="btm_config__row__label">Window color: </span>
-              <div class="btm_config__row__wrapper btm_config__row--mode">
-                <input type="color" value={color()} oninput={(e) => {
-                  setColor(e.target.value);
-                }}/>
-              </div>
+            <span class="btm_config__row__label">Window color: </span>
+            <div class="btm_config__row__wrapper btm_config__row--mode">
+              <input type="color" value={color()} onInput={(e) => {
+                setColor(e.target.value);
+              }}/>
+            </div>
           </div>
           <div class="btm_config__row">
-              <span class="btm_config__row__label">Window position: </span>
-              <span class="btm_config__row__wrapper">
-                  <input type="text" style="width: 50px;" value={elementOffset().x} onchange={(e) => {
-                    let {value} = e.target;
-                    let v = parseInt(value);
-                    !Number.isNaN(v) && v > 0 && setElementOffset({x: v, y: elementOffset().y});
-                  }}/>
-                  <span class="btm_config__row__x">X</span>
-                  <input type="text" style="width: 50px;" value={elementOffset().y} onchange={(e) => {
-                     let {value} = e.target;
-                     let v = parseInt(value);
-                     !Number.isNaN(v) && v > 0 && setElementOffset({x: elementOffset().x, y: v});
-                  }}/>
-              </span>
+            <span class="btm_config__row__label">Window position: </span>
+            <span class="btm_config__row__wrapper">
+              <input type="text" style={{"width":"50px"}} value={elementOffset().x} onChange={(e) => {
+                const {value} = e.target;
+                const v = parseInt(value);
+                !Number.isNaN(v) && v > 0 && setElementOffset({x: v, y: elementOffset().y});
+              }}/>
+              <span class="btm_config__row__x">X</span>
+              <input type="text" style={{"width":"50px"}} value={elementOffset().y} onChange={(e) => {
+                const {value} = e.target;
+                const v = parseInt(value);
+                !Number.isNaN(v) && v > 0 && setElementOffset({x: elementOffset().x, y: v});
+              }}/>
+            </span>
           </div>
           <div class="btm_config__row">
-              <span class="btm_config__row__label">Window size: </span>
-              <span class="btm_config__row__wrapper">
-                  <input type="text" style="width: 50px;" value={dimension().width} onchange={(e) => {
-                    let {value} = e.target;
-                    let v = parseInt(value);
-                    !Number.isNaN(v) && v > 0 && setDimension({width: v, height: dimension().height});
-                  }}/>
-                  <span class="btm_config__row__x">X</span>
-                  <input type="text" style="width: 50px;" value={dimension().height - FRAME_SIZE} onchange={(e) => {
-                     let {value} = e.target;
-                     let v = parseInt(value) + FRAME_SIZE;
-                     const h = dimension().height - v;
-                     !Number.isNaN(v) && v > 0 && setDimension({width: dimension().width, height: v});
-                  }}/>
-              </span>
+            <span class="btm_config__row__label">Window size: </span>
+            <span class="btm_config__row__wrapper">
+              <input type="text" style={{"width":"50px"}} value={dimension().width} onChange={(e) => {
+                const {value} = e.target;
+                const v = parseInt(value);
+                !Number.isNaN(v) && v > 0 && setDimension({width: v, height: dimension().height});
+              }}/>
+              <span class="btm_config__row__x">X</span>
+              <input type="text" style={{"width":"50px"}} value={dimension().height - FRAME_SIZE} onChange={(e) => {
+                const {value} = e.target;
+                const v = parseInt(value) + FRAME_SIZE;
+                !Number.isNaN(v) && v > 0 && setDimension({width: dimension().width, height: v});
+              }}/>
+            </span>
           </div>
           <div class="btm_config__row btm_config__row--element">
-              <span class="btm_config__row__label">Enter id or class or name of an element to record (and press <b style="font-weight: 600;">Enter</b>): </span>
-              <span class="btm_config__row__wrapper">
-                <input type="text" style="width: 140px;" value={selectedEl()} onblur={(e) => {
-                  let {value} = e.target;
-                  selectElement(value);
-                }} placeholder="Starting with # or ." onkeyup={(e: KeyboardEvent) => {
-                  if (e.key === 'Enter') {
-                    'value' in e.target && selectElement(e.target.value);
-                  }
-                }}/>
-              </span>
+            <span class="btm_config__row__label">Enter id or class or name of an element to record (and press <b style={{"font-weight":"600"}}>Enter</b>): </span>
+            <span class="btm_config__row__wrapper">
+              <input type="text" style={{"width":"140px"}} value={selectedEl()} onBlur={(e) => {
+                const {value} = e.target;
+                selectElement(value);
+              }} placeholder="Starting with # or ." onKeyUp={(e: KeyboardEvent) => {
+                if (e.key === 'Enter') {
+                  'value' in e.target && selectElement(e.target.value);
+                }
+              }}/>
+            </span>
           </div>
           <details class="btm_advanced">
             <summary>Advanced</summary>
@@ -551,70 +552,71 @@ customElement("btm-frame", {}, () => {
           <span title="Close" class="btm_config__close-btn" onclick={() => {
             toggleConfig((c) => !c);
           }}>
-            <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" class="feather feather-x"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+            <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" class="feather feather-x"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
           </span>
         </div> : null}
         <div class="btm_mirror" data-disabled={isRecording()}>
-          <Resizer disabled={isRecording()} frameRef={frame} onResize={(dir, width, deltaX, deltaY, startLeft) => {
-            setIsResizing(true);
-            if (dir === 'e') {
-              const w = width + deltaX;
-              if (w < MIN_WIDTH) {
-                return;
-              } 
-              setDimension({width: w, height: dimension().height});
-            } else if (dir === 'w' || dir === 'sw') {
-              const w = width - deltaX;
-              if (w < MIN_WIDTH) {
-                return;
-              }
-              setElementOffset({x: startLeft + deltaX, y: elementOffset().y});
-              setDimension({width: w, height: dimension().height});
-              if (dir === 'sw') {
-                const h = dimension().height + deltaY;
-                setDimension({width: dir === 'se' ? width + deltaX: dimension().width, height: h});
-              }
-            } else if (dir === 's' || dir === 'se') {
-              const h = dimension().height + deltaY;
-              if (h < MIN_HEIGHT || ( dir === 'se' && width + deltaX < MIN_WIDTH)) {
-                return;
-              }
-              setDimension({width: dir === 'se' ? width + deltaX: dimension().width, height: h});
-            } else if (dir === 'n' || dir === 'ne' ||  dir === 'nw') {
-              const h = dimension().height - deltaY;
-              if (h < MIN_HEIGHT) return;
-              if (dir === 'ne' || dir === 'nw') {
-                const w = dir === 'ne' ? width + deltaX: width - deltaX;
-                if (w < MIN_WIDTH) return;
-                if (dir === 'nw') {
-                  setElementOffset({y: elementOffset().y, x: startLeft + deltaX});
+          <Resizer disabled={isRecording()} frameRef={frame} onResize={
+            // eslint-disable-next-line solid/reactivity
+            (dir, width, deltaX, deltaY, startLeft) => {
+              setIsResizing(true);
+              if (dir === 'e') {
+                const w = width + deltaX;
+                if (w < MIN_WIDTH) {
+                  return;
+                } 
+                setDimension({width: w, height: dimension().height});
+              } else if (dir === 'w' || dir === 'sw') {
+                const w = width - deltaX;
+                if (w < MIN_WIDTH) {
+                  return;
                 }
-                setElementOffset({y: elementOffset().y + deltaY, x: elementOffset().x});
-                setDimension({width: w, height: h});
-              } else {
-                setElementOffset({y: elementOffset().y + deltaY, x: elementOffset().x});
-                setDimension({width: dimension().width, height: h});
+                setElementOffset({x: startLeft + deltaX, y: elementOffset().y});
+                setDimension({width: w, height: dimension().height});
+                if (dir === 'sw') {
+                  const h = dimension().height + deltaY;
+                  setDimension({width: dir === 'se' ? width + deltaX: dimension().width, height: h});
+                }
+              } else if (dir === 's' || dir === 'se') {
+                const h = dimension().height + deltaY;
+                if (h < MIN_HEIGHT || ( dir === 'se' && width + deltaX < MIN_WIDTH)) {
+                  return;
+                }
+                setDimension({width: dir === 'se' ? width + deltaX: dimension().width, height: h});
+              } else if (dir === 'n' || dir === 'ne' ||  dir === 'nw') {
+                const h = dimension().height - deltaY;
+                if (h < MIN_HEIGHT) return;
+                if (dir === 'ne' || dir === 'nw') {
+                  const w = dir === 'ne' ? width + deltaX: width - deltaX;
+                  if (w < MIN_WIDTH) return;
+                  if (dir === 'nw') {
+                    setElementOffset({y: elementOffset().y, x: startLeft + deltaX});
+                  }
+                  setElementOffset({y: elementOffset().y + deltaY, x: elementOffset().x});
+                  setDimension({width: w, height: h});
+                } else {
+                  setElementOffset({y: elementOffset().y + deltaY, x: elementOffset().x});
+                  setDimension({width: dimension().width, height: h});
+                }
               }
-            }
-          }} onResizeEnd={() => {
+            }} onResizeEnd={() => {
             setIsResizing(false);
           }}>
             <div class="btm_n" data-dir="n">
-              <div></div>
+              <div />
             </div>
-            <div class="btm_ne" data-dir="ne" ></div>
-            <div class="btm_nw" data-dir="nw" ></div>
+            <div class="btm_ne" data-dir="ne"  />
+            <div class="btm_nw" data-dir="nw"  />
             <div class="btm_w" data-dir="w" style={{height: dimension().height + TITLE_BAR_HEIGHT + 'px'}}>
-              <div></div>
+              <div />
             </div>
             <div class="btm_e" data-dir="e" style={{height: dimension().height + TITLE_BAR_HEIGHT + 'px'}}>
-              <div></div>
+              <div />
             </div>
             <div class="btm_s" data-dir="s" style={{bottom: -dimension().height - (showBottomTitleBar() ? TITLE_BAR_HEIGHT + 10 : MIRROR_FRAME_HEIGHT) + FRAME_SIZE + 'px', height: showBottomTitleBar() ? '10px': '15px'}}>
-              <div></div>
+              <div />
             </div>
-            <div class="btm_se" data-dir="se"  style={{bottom: -dimension().height - (showBottomTitleBar() ? TITLE_BAR_HEIGHT + 10: 0) + 'px'}}>
-            </div>
+            <div class="btm_se" data-dir="se"  style={{bottom: -dimension().height - (showBottomTitleBar() ? TITLE_BAR_HEIGHT + 10: 0) + 'px'}} />
             <div class="btm_sw" data-dir="sw"  style={{bottom: -dimension().height - (showBottomTitleBar() ? TITLE_BAR_HEIGHT + 10: 0) + 'px'}}>
               {isResizing() ? <div style={{position: "relative", width: "100%", height: "100%"}}>
                 <div style={{bottom: showBottomTitleBar() ? `${TITLE_BAR_HEIGHT + 15}px`: '10px'}} class="btm_dimension">{dimension().width}x{dimension().height - FRAME_SIZE}</div>

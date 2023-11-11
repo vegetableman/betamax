@@ -1,7 +1,7 @@
 class Pyodide {
 
   worker: Worker;
-  _status: any;
+  _status: Record<string, [string] | [string, MessageEvent | ErrorEvent]>;
   loaded: boolean;
   /**
    * We will use this method privately to communicate with the worker and
@@ -13,7 +13,7 @@ class Pyodide {
     this._status[msg] = ['loading']
     this.worker.postMessage(event)
     return new Promise((res, rej) => {
-      let interval = setInterval(() => {
+      const interval = setInterval(() => {
         const status = this._status[msg]
         if (status) {
           if (status[0] === 'done') res(status[1])
@@ -69,7 +69,7 @@ class Pyodide {
               chrome.runtime.getURL('src/pyodide/packages/scipy-1.10.1-cp311-cp311-emscripten_3_1_39_wasm32.whl')
             ]
           }})
-      });
+        });
     })
   }
 
@@ -85,8 +85,6 @@ class Pyodide {
     this.loaded = false;
     this.worker.terminate();
   }
-
-  compressImages() {}
 }
 
 // Export the same instant everywhere

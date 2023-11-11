@@ -13,10 +13,6 @@ const DEMO_HTML =
 
           function animate(img, timeline, element) {
             let i = 0;
-            let run_time = 0;
-            for (let j = 0; j < timeline.length - 1; ++j) {
-              run_time += timeline[j].delay;
-            }
 
             function f() {
               const frame = i++ % timeline.length;

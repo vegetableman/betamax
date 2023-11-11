@@ -17,4 +17,4 @@ export function copyToClipboard (text) {
   textArea.select(); 
   document.execCommand('copy');
   document.body.removeChild(textArea);
-};
+}
