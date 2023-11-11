@@ -1,7 +1,7 @@
 {
     "name": "betamax",
     "displayName": "Betamax",
-    "version": "0.202212.1",
+    "version": "1.0.0-beta",
     "description": "Chrome Extension boilerplate with SolidJS + Vite + ManifestV3",
     "license": "MIT",
     "repository": {
@@ -10,23 +10,21 @@
     },
     "scripts": {
         "dev": "npm run build:sandbox && vite build -w",
+        "dev:all": "vite build -w --config vite-frame.config.ts",
         "build": "vite build",
         "lint": "eslint . --fix -c .eslintrc --ext js,ts --ignore-pattern='!.*'",
         "build:noemit": "tsc --noEmit && vite build",
         "test": "jest",
         "build:sandbox": "vite build --config vite-frame.config.ts",
-        "build:all": "npm run build:sandbox && npm run build",
-        "dev:sandbox": "vite build -w --config vite-frame.config.ts"
+        "build:all": "npm run build:sandbox && npm run build"
     },
     "type": "module",
     "dependencies": {
         "@webcomponents/custom-elements": "^1.6.0",
-        "jszip": "^3.10.1",
         "solid-element": "^1.7.1",
         "solid-js": "^1.6.2",
         "solid-transition-group": "^0.2.2",
-        "tldts": "^6.0.15",
-        "webextension-polyfill": "^0.10.0"
+        "tldts": "^6.0.15"
     },
     "devDependencies": {
         "@crxjs/vite-plugin": "2.0.0-beta.7",
@@ -52,6 +50,7 @@
         "prettier": "2.8.0",
         "rollup-plugin-copy": "^3.4.0",
         "sass": "1.56.1",
+        "tailwindcss": "^3.3.5",
         "ts-jest": "^29.0.3",
         "ts-loader": "9.4.2",
         "ts-node": "10.9.1",
