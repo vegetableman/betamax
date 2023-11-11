@@ -42,8 +42,8 @@ export default defineConfig({
       dest: outDir + '/src'
     },
     {
-      src: root + '/jszip.min.js',
-      dest: outDir + '/src'
+      src: root + '/vendor/jszip.min.js',
+      dest: outDir + '/src/vendor'
     },
   ],  hook: 'writeBundle'
   }), WindiCSS(),  crx({ manifest })],
