@@ -1,7 +1,6 @@
 import 'virtual:windi.css';
 import { For, createEffect, createSignal, onMount } from "solid-js";
 import  {Portal, render} from "solid-js/web";
-import JSZip from "jszip";
 import pyodide from "./pyodide";
 import DEMO_HTML from './demo.js';
 import { copyToClipboard } from './pages/content/utils';
@@ -77,7 +76,9 @@ const App = () => {
   const [showClipboardMsg, toggleClipboardMsg] = createSignal(null);
   const [isDetailsOpen, setDetailsOpen] = createSignal(true);
   const [resizeFactor, setResizeFactor] = createSignal(null);
+  const [packingMode, setPackingMode] = createSignal(null);
   const [err, toggleError] = createSignal(null);
+  const [version, setVersion] = createSignal(null);
 
   const generateAnimation = async () => {
     if (generating()) return;
@@ -92,7 +93,7 @@ const App = () => {
     setMessages([...messages(), "Pyodide is loaded."]);
     setMessages([...messages(), "Sending images to the worker..."]);
     pyodide.processImages({
-      screenshots: ss().map((s) => s.src), times: times(), format: format(), resizeFactor: resizeFactor()}, async (done, payload) => {
+      screenshots: ss().map((s) => s.src), times: times(), format: format(), resizeFactor: resizeFactor(), packingMode: packingMode()}, async (done, payload) => {
       if (done) {
         setIsGenerating(false);
         const {image, timeline: tt} = payload;
@@ -141,6 +142,7 @@ const App = () => {
   };
 
   const downloadZip = async () => {
+    //@ts-expect-error
     const zip = new JSZip();
     zip.file('timeline.json', timeline());
     zip.file(`packed_image.${format()}`, packedImage());
@@ -157,10 +159,12 @@ const App = () => {
   onMount(async () => {
     window.addEventListener('message', function(event) {
       if ( event.data instanceof Object) {
-        setExampleFileName(event.data.fileName);
-        setDetailsOpen(event.data.isDetailsOpen);
+        'fileName' in event.data && setExampleFileName(event.data.fileName);
+        'isDetailsOpen' in event.data && setDetailsOpen(event.data.isDetailsOpen);
+        'version' in event.data && setVersion(event.data.version);
       }
     });
+    window.parent.postMessage({name: 'getVersion'}, '*');
   });
 
   createEffect(() => {
@@ -223,9 +227,10 @@ const App = () => {
     } 
   }}>
     <div class="flex h-full">
-      <div class="absolute left-6 top-6 w-28">
+      <figure class="absolute left-6 top-6 w-28">
         <img src="./assets/img/logo-full.svg"/>
-      </div>
+        <figcaption class="text-right text-[10px] pt-1 text-[mediumpurple] font-bold italic">BETA</figcaption>
+      </figure>
       <div class="flex-1 bg-zinc-800 h-full" tabindex="0" ref={gallery}>
         {ss().length ?
           <div class="relative h-full">
@@ -262,12 +267,17 @@ const App = () => {
         <div class="flex flex-col w-full">
           <div class="flex flex-col flex-1 items-center w-full py-[20px] border-b border-[#ccc]">
             <div class="flex items-center w-full relative justify-center">
+              <details class="absolute top-[-12px] left-[20px] z-20 pt-1 text-[#333]">
+                <summary class="cursor-pointer">Need help?</summary>
+                <p class="absolute top-7 w-72 bg-[antiquewhite] border border-[#777] py-1 px-2">Check out the <a class="text-blue-600 underline" target="_blank" href="https://github.com/vegetableman/betamax">README</a>. To report or know more about existing issues, go <a class="text-blue-600 underline" target="_blank" href="https://github.com/vegetableman/betamax/issues/">here</a>.</p>
+              </details>
               <div class="relative flex items-center pt-3">
                 <input disabled={generating()} class="absolute select-none h-12 z-10 text-transparent cursor-pointer outline-none w-full peer" type="file" accept=".zip" ref={fileInput} onchange={async (event) => {
                   const zipFileInput = event.target;
                   if (zipFileInput.files.length > 0) {
                     const selectedZipFile = zipFileInput.files[0];
                     setFileName(selectedZipFile.name.split('.zip')[0]);
+                    //@ts-expect-error
                     const zip = new JSZip();
                     const zipData = await zip.loadAsync(selectedZipFile);
                     const fileNames = Object.keys(zipData.files);
@@ -307,11 +317,12 @@ const App = () => {
               <div class="absolute top-[-10px] right-[20px] text-sm cursor-pointer underline hover:opacity-70" onclick={() => {
                 aboutDialog.showModal();
               }}>About</div>
+
             </div>
             {exampleFileName() && <div class="text-center max-w-[90%] break-all">Recently downloaded file name: <b style="font-weight: 600;">{exampleFileName()}</b></div>}
-            <div class="items-center flex p-3">
+            <div class="items-center flex p-2">
               <span class="text-sm pr-2 text-[#333]">Resize factor</span> 
-              <select class="p-[10px] border-2 border-solid border-[#777] text-[#555] rounded-sm my-[10px] text-xs w-16 ml-1 font-medium cursor-pointer" onchange={(e) => {
+              <select class="p-[5px] border-2 border-solid border-[#777] text-[#555] rounded-sm my-[10px] text-xs w-16 ml-1 font-medium cursor-pointer" onchange={(e) => {
                 const { value } = e.target;
                 value && setResizeFactor(parseFloat(value));
               }}>
@@ -321,26 +332,34 @@ const App = () => {
                 <option value="0.5">1/2</option>
               </select>
               <div class="relative group cursor-pointer">
-                <svg class="ml-2 text-[#777] fill-[antiquewhite]" xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-info"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>
-                <span class="hidden group-hover:inline absolute bg-[antiquewhite] p-1 w-[199px] b-[-50px] right-0 border border-[#777]">Set resize factor to scale images and the result.</span>
+                <svg class="ml-2 text-[#777] fill-[antiquewhite]" xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>
+                <span class="hidden group-hover:inline absolute bg-[antiquewhite] p-1 w-[199px] b-[-50px] right-0 border border-[#777] z-10">Set resize factor to scale images and the packed image.</span>
               </div>
+            </div>
+            <div class="items-center flex p-2">
+              <span class="text-sm pr-2 text-[#333]">Packing Optimization</span> 
+              <select class="p-[5px] border-2 border-solid border-[#777] text-[#555] rounded-sm my-[10px] text-xs w-full max-w-[120px] ml-1 font-medium cursor-pointer" onchange={(e) => {
+                const { value } = e.target;
+                value && setPackingMode(parseFloat(value));
+              }}>
+                <option disabled>Select packing optimization</option>
+                <option value="1" selected>High (slowest)</option>
+                <option value="0.5">Medium</option>
+                <option value="0">None (fastest)</option>
+              </select>
             </div>
             <button style={{cursor: generating()? 'default': 'pointer'}} disabled={!ss()?.length} class="relative py-[10px] px-2 my-[10px] w-40 h-10 border-[#ef5527] bg-[#f46236] text-white text-sm border-outset border-2 disabled:opacity-70 disabled:cursor-default hover:not-disabled:bg-[#fb3a00] font-medium" onclick={generateAnimation}>
               <div class="absolute left-4 top-2 z-20">Generate animation</div>
               {generating() ? 
               <div class="absolute left-0 top-0 w-full h-full bg-progress-pattern transition-all duration-300 ease animate-progress z-10"></div>: null}
             </button>
-            <details class="w-full text-center pt-1 text-[#333]">
-              <summary class="cursor-pointer">Need help?</summary>
-              <p class="py-1 px-4">Check out the <a class="text-blue-600 underline" target="_blank" href="https://github.com/vegetableman/betamax">README</a>. To report or know more about existing issues, go <a class="text-blue-600 underline" target="_blank" href="https://github.com/vegetableman/betamax/issues/1">here</a>.</p>
-            </details>
-            <div>
-             {generating() ? <a class="underline text-[blue] cursor-pointer hover:opacity-75" onclick={() => {
-              terminatePyodide();
-              setIsGenerating(false);
-              setMessages([...messages(), 'Cancelled.']);
-              }}>Cancel</a>: null}
-            </div>
+            {generating() ? <div>
+              <a class="underline text-[blue] cursor-pointer hover:opacity-75" onclick={() => {
+                terminatePyodide();
+                setIsGenerating(false);
+                setMessages([...messages(), 'Cancelled.']);
+                }}>Cancel</a>
+              </div>: null}
           </div>
           {generating() || messages().length ? <ul ref={logScroller} class="px-5 basis-[400px] py-3 bg-[#ddd] overflow-auto">
             <For each={messages()}>{(m, i) =>
@@ -353,7 +372,9 @@ const App = () => {
                 showOutput(false);
               }
             }} class="absolute flex items-center justify-center top-0 left-0 w-full h-full bg-zinc-800 z-20">
-              <pre class="absolute left-[25px] top-[25px] text-[mediumpurple] text-[3px] leading-[unset]">{logo}</pre>
+              <div class="absolute left-[25px] top-[25px] w-28">
+                <img src="./assets/img/logo-full.svg"/>
+              </div>
               <span class="absolute text-[20px] top-[16px] right-[20px] text-gray-400 cursor-pointer hover:text-white" onclick={() => {
                 showOutput(false);
               }}>
@@ -403,9 +424,9 @@ const App = () => {
                     <button class="py-[10px] px-5 mr-4 border-[#fd6900] bg-[#fb6800] text-white text-sm border-outset border-2 disabled:opacity-70 disabled:cursor-default hover:bg-[#fb3a00] font-medium" onclick={downloadZip}>
                       <span>Download as zip</span>
                     </button>
-                    <div class="py-3 text-[13px]">Found it useful? <a target="_blank" class="underline text-[#f76600] font-medium cursor-pointer" onclick={() => {
+                    <div class="py-3 text-xs">Found it useful? consider <a target="_blank" class="underline text-[#f76600] font-medium cursor-pointer" onclick={() => {
                        window.parent.postMessage({name: 'coffee'}, '*');
-                    }}>buy me a donut</a> 🍩😊</div>
+                    }}>buying me a donut</a> 🍩😊</div>
                     <div class="px-3 pb-5">
                       <details ref={details} open={isDetailsOpen()} class="text-left" ontoggle={(e) => {
                         const isOpen = e.target instanceof HTMLDetailsElement && e.target.open;
@@ -443,8 +464,12 @@ const App = () => {
       </div>
     </div>
     <dialog ref={aboutDialog}>
-      <p class="text-sm">Built by <a class="text-[blue] outline-none hover:underline" href="https://vigneshanand.com/" target="_blank">Vignesh Anand</a>.</p>
-      <p class="text-xs pt-2"><a class="text-[blue] hover:underline" href="https://github.com/vegetableman/betamax" target="_blank">https://github.com/vegetableman/betamax</a></p>
+      <img class="w-52 m-auto" src="./assets/img/logo-full.svg"/>
+      <div class="text-center my-2">
+        <p class="text-xs pt-2">Version v{version()}-beta</p>
+        <p class="text-xs pt-2">Built by <a class="text-[blue] outline-none hover:underline" href="https://vigneshanand.com/" target="_blank">Vignesh Anand</a>.</p>
+        <p class="text-xs pt-2"><a class="text-[blue] hover:underline" href="https://github.com/vegetableman/betamax" target="_blank">https://github.com/vegetableman/betamax</a></p>
+      </div>
       <button class="hover:underline border border-black mt-2 p-1 float-right" onclick={() => {
         aboutDialog.close();
       }}>close</button>

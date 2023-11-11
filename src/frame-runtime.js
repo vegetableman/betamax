@@ -4,6 +4,7 @@ chrome.runtime.onMessage.addListener(async (request) => {
   const iframe = document.querySelector('iframe');
   const data = await chrome.storage.sync.get(isDetailsOpenKey);
   request.isDetailsOpen = data ? data[isDetailsOpenKey]: false;
+  request.version = chrome.runtime.getManifest().version;
   iframe.contentWindow.postMessage(request, '*');
 });
 
@@ -24,6 +25,9 @@ window.addEventListener('message', function(event) {
       link.target = '_blank';
       link.href = 'https://www.buymeacoffee.com/vigneshanand';
       setTimeout(function () { link.click() }, 0);
+    } else if (name === 'getVersion') {
+      const iframe = document.querySelector('iframe');
+      iframe.contentWindow.postMessage({version: chrome.runtime.getManifest().version}, '*');
     }
   }
 });
