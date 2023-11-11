@@ -4,13 +4,13 @@ let zip = new JSZip();
 let isCancelled = false;
 let continueCapture = false;
 let tabId;
+let region;
 
 chrome.runtime.onMessage.addListener(async (message, sender, sendResponse) => {
   if (message.target !== 'offscreen') {
     return;
   }
   tabId = message.tabId;
-  console.log(message);
   switch (message.type) {
     case 'start_capture':
       startRecording(message.data);
@@ -25,16 +25,13 @@ chrome.runtime.onMessage.addListener(async (message, sender, sendResponse) => {
       isCancelled = true;
       stopRecording();
       break;
+    case 'set_region':
+      region = message.payload.region;
+      break;
     default:
       throw new Error('Unrecognized message:', message.type);
   }
 });
-
-function delay(ms) {
-  return new Promise((resolve) => {
-    setTimeout(resolve, ms);
-  });
-}
 
 function postCapture(fileName) {
   zip.generateAsync({type: 'blob'}).then(async function(content) {
@@ -51,22 +48,18 @@ function postCapture(fileName) {
   })
 }
 
-function evenOut(d) {
-  return d % 2 === 0 ? d : d + 1;
-}
-
-let completions = 0;
+let isOpen = false;
 
 async function startRecording(data) {
-  const { region, fileName, frameRate } = data;
-
-  if (recorder?.state === 'recording') {
-    throw new Error('Called startRecording while recording is in progress.');
+  if (isOpen) {
+    return;
   }
 
-  let media;
+  const { fileName, frameRate } = data;
   const controller = new CaptureController();
+  let media;
   try {
+    isOpen = true;
     media = await navigator.mediaDevices.getDisplayMedia({
       audio: false,
       video: {
@@ -80,17 +73,13 @@ async function startRecording(data) {
     return;
   }
 
-  let settings = media.getTracks()[0].getSettings();
-  console.log(settings);
+  const settings = media.getTracks()[0].getSettings();
   const displaySurface = settings.displaySurface;
-  if (displaySurface == "window") {
+  if (displaySurface === "window") {
     controller.setFocusBehavior("no-focus-change");
-  } else if (displaySurface === 'monitor') {
-    region.top = evenOut(region.top + (settings.height - region.window.innerHeight));
-    console.log('region:', region);
-  }
+  } 
 
-  chrome.runtime.sendMessage({type: 'init_capture', target: 'background', tabId});
+  chrome.runtime.sendMessage({type: 'start_countdown', target: 'background', tabId, payload: {displaySurface}});
   
   // Wait for the countdown to finish
   await new Promise((resolve) => {
@@ -102,41 +91,71 @@ async function startRecording(data) {
     }, 0);
   });
   
-  recorder = new MediaRecorder(media);
-  const track = media.getVideoTracks()[0];
-  const imageCapture = new ImageCapture(track);
-  
+  recorder = new MediaRecorder(media,{ mimeType: 'video/webm' });
+
   let times = [];
-  let bitmaps = [];
-  let intervalId = setInterval(async () => {
-    let now = parseInt(performance.now());
-    imageCapture.track && imageCapture.track.readyState === 'live' && imageCapture.grabFrame().then((bitmap) => {
-      times.push(now);
-      bitmaps.push(bitmap);
-    }).catch(() => {});
-  }, 1000 / frameRate);
+  let recordedChunks = [];
+
+  recorder.ondataavailable = (event) => {
+    if (event.data.size > 0) {
+      recordedChunks.push(event.data);
+    }
+  };
   
   recorder.onstop = () => {
-    clearInterval(intervalId);
+    chrome.runtime.sendMessage({type: 'capture_stopped', target: 'background', tabId});
     media.getTracks().forEach((t) => t.stop());
-    chrome.runtime.sendMessage({type: 'capture_stopped', tabId});
+   
+    const blob = new Blob(recordedChunks, { type: 'video/webm' });
+    const videoElement = document.createElement('video');
+    videoElement.src = URL.createObjectURL(blob);
+
     const canvas = document.createElement('canvas');
     canvas.width = region.width;
     canvas.height = region.height;
     const context = canvas.getContext('2d');
+
+    let startTime = 0.0;
+    let completions = 0;
+    let paintCount = 0;
+
+    const processCapture = () => {
+      now = performance.now().toFixed(3);
+      if (startTime === 0.0) {
+        startTime = now;
+      }
+      const time = videoElement.currentTime;
+      let t = Math.round(time * 1000);
+      times.push(t);
+      context.clearRect(0, 0, canvas.width, canvas.height);
+      context.drawImage(videoElement, -region.left, -region.top);
+
+      const elapsed = (now - startTime) / 1000.0;
+      const fps = (++paintCount / elapsed).toFixed(3);
+      console.info('fps:', fps);
+
+      canvas.toBlob((blob) => {
+        completions++;
+        zip.file(`${t}.png`, blob);
+        if (completions === times.length) {
+          times = [];
+          postCapture(fileName);
+        }
+      }, `image/png`);
+    }
+    let vIntervalId;
     if (!isCancelled) {
       chrome.runtime.sendMessage({type: 'processing_capture', target: 'background', tabId});
-      bitmaps.forEach((imageBitmap, i) => {
-        context.drawImage(imageBitmap, -region.left, -region.top);
-        canvas.toBlob((blob) => {
-          completions++;
-          zip.file(`${times[i]}.png`, blob);
-          if (completions === bitmaps.length) {
-            bitmaps = [];
-            postCapture(fileName);
-          }
-        });
+      videoElement.addEventListener('loadeddata', () => {
+        videoElement.currentTime = 1.0;
+        vIntervalId = setInterval(() => {
+          processCapture()
+        },  1000 / frameRate);
       });
+      videoElement.addEventListener('ended', () => {
+        clearInterval(vIntervalId);
+      });
+      videoElement.play();
     } else {
       isCancelled = false;
       chrome.runtime.sendMessage({type: 'remove_document', target: 'background', tabId});
