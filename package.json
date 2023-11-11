@@ -2,7 +2,7 @@
     "name": "betamax",
     "displayName": "Betamax",
     "version": "1.0.0-beta",
-    "description": "Chrome Extension boilerplate with SolidJS + Vite + ManifestV3",
+    "description": "Record and generate animated screencasts.",
     "license": "MIT",
     "repository": {
         "type": "git",
