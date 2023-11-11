@@ -162,7 +162,7 @@ async function startRecording(data) {
     }
   }
   
-  recorder.start();
+  recorder.start(1000 / frameRate);
 }
 
 async function stopRecording() {

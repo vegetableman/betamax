@@ -198,18 +198,12 @@ async function processImages(data) {
         # Decode the Base64 data into binary form
         image_data = base64.b64decode(base64_data)
         im = iio.imread(io.BytesIO(image_data))
-        #crop_x = 0
-        #crop_y = 0
-        #crop_width = 400
-        #crop_height = 400
-        #im = im[crop_y:crop_y+crop_height, crop_x:crop_x+crop_width]
 
         height, width, _ = im.shape
         r = '${resizeFactor}'
         if r != 'null':
           r = float(r)
-          img_obj = Image.fromarray(im).resize((int(width * r), int(height * r)))
-          im = array(img_obj)
+          im = cv2.resize(im, (0, 0), fx=r, fy=r)
         if im.shape[2] == 4:
           im = im[:,:,:3]
         images.append(im)
