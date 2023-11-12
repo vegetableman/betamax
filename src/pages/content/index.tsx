@@ -156,17 +156,18 @@ customElement("btm-frame", {}, () => {
     setIsStarting(true);
     setTime('00:00');
     await delay(1000);
+    chrome.runtime.sendMessage({
+      type: 'set_region',
+      target: 'background',
+      payload: {
+        region: calculateRegion(payload.displaySurface)
+      }
+    });
     setCountDown(3);
     await new Promise((resolve) => {
       const id = setInterval(() => {
         if (countDown() === 1) {
-          chrome.runtime.sendMessage({
-            type: 'set_region',
-            target: 'background',
-            payload: {
-              region: calculateRegion(payload.displaySurface)
-            }
-          });
+          chrome.runtime.sendMessage({type: 'continue_capture', target: 'background'});
           clearInterval(id);
           resolve(true);
         }
@@ -176,8 +177,6 @@ customElement("btm-frame", {}, () => {
       }, 1000);
     });
     setIsStarting(false);
-    await delay(100);
-    chrome.runtime.sendMessage({type: 'continue_capture', target: 'background'});
     setIsRecording(true);
     setTime(updateDisplayTime());
     timerId = setInterval(() => {

@@ -94,7 +94,7 @@ async function startRecording(data) {
   recorder = new MediaRecorder(media, { 
     mimeType: 'video/webm;codecs=vp9', 
     // Setting bitrate helped solve issues with recording's having blurry opacity transitions.
-    videoBitsPerSecond : 2500000 
+    videoBitsPerSecond : 2500000
   });
 
   let times = [];
@@ -145,7 +145,7 @@ async function startRecording(data) {
           times = [];
           postCapture(fileName);
         }
-      }, `image/png`);
+      });
     }
     let vIntervalId;
     if (!isCancelled) {
@@ -166,7 +166,7 @@ async function startRecording(data) {
     }
   }
   
-  recorder.start(1000 / frameRate);
+  recorder.start();
 }
 
 async function stopRecording() {
