@@ -91,7 +91,11 @@ async function startRecording(data) {
     }, 0);
   });
   
-  recorder = new MediaRecorder(media,{ mimeType: 'video/webm' });
+  recorder = new MediaRecorder(media, { 
+    mimeType: 'video/webm;codecs=vp9', 
+    // Setting bitrate helped solve issues with recording's having blurry opacity transitions.
+    videoBitsPerSecond : 2500000 
+  });
 
   let times = [];
   let recordedChunks = [];
