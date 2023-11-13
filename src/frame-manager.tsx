@@ -79,6 +79,8 @@ const App = () => {
   const [packingMode, setPackingMode] = createSignal(null);
   const [err, toggleError] = createSignal(null);
   const [version, setVersion] = createSignal(null);
+  const [tolerance, setTolerance] = createSignal(512);
+  const [allocation, setAllocation] = createSignal(20000);
 
   const generateAnimation = async () => {
     if (generating()) return;
@@ -93,7 +95,7 @@ const App = () => {
     setMessages([...messages(), "Pyodide is loaded."]);
     setMessages([...messages(), "Sending images to the worker..."]);
     pyodide.processImages({
-      screenshots: ss().map((s) => s.src), times: times(), format: format(), resizeFactor: resizeFactor(), packingMode: packingMode()}, async (done, payload) => {
+      screenshots: ss().map((s) => s.src), times: times(), format: format(), resizeFactor: resizeFactor(), packingMode: packingMode(), tolerance: tolerance(), allocation: allocation()}, async (done, payload) => {
       if (done) {
         setIsGenerating(false);
         const {image, timeline: tt} = payload;
@@ -176,7 +178,7 @@ const App = () => {
   });
 
   return <div onkeydown={(e) => {
-    e.preventDefault();
+    e.stopPropagation();
     // disable transition on shift
     if (e.shiftKey && e.key === 'ArrowRight') {
       toggleTransition(false);
@@ -348,6 +350,27 @@ const App = () => {
                 <option value="0">None (fastest)</option>
               </select>
             </div>
+            <details class="items-center flex flex-col p-2 w-full" open>
+              <summary class="bg-[#ccc] py-[2px] px-[5px] cursor-pointer">Advanced</summary>
+              <div class="flex flex-col w-full">
+                  <div class="items-center flex p-3 py-4 justify-evenly">
+                  <span class="text-sm pr-2 text-[#333]">Simplification Tolerance</span> 
+                  <input type="text" value={tolerance()} class="p-[5px] border-2 border-solid border-[#777] text-[#555] rounded-sm max-w-[70px]" onchange={(e) => {
+                    let {value} = e.target;
+                    let v = parseInt(value);
+                    !Number.isNaN(v) && v > 0 && setTolerance(v);
+                  }}></input>
+                </div>
+                <div class="items-center flex p-3 py-4 pr-[2px] justify-around">
+                  <span class="text-sm pr-2 text-[#333]">Allocation Size</span> 
+                  <input type="text" value={allocation()} class="p-[5px] border-2 border-solid border-[#777] text-[#555] rounded-sm max-w-[70px]" onchange={(e) => {
+                    let {value} = e.target;
+                    let v = parseInt(value);
+                    !Number.isNaN(v) && v > 0 && setAllocation(v);
+                  }}></input>
+                </div>
+              </div>
+            </details>
             <button style={{cursor: generating()? 'default': 'pointer'}} disabled={!ss()?.length} class="relative py-[10px] px-2 my-[10px] w-40 h-10 border-[#ef5527] bg-[#f46236] text-white text-sm border-outset border-2 disabled:opacity-70 disabled:cursor-default hover:not-disabled:bg-[#fb3a00] font-medium" onclick={generateAnimation}>
               <div class="absolute left-4 top-2 z-20">Generate animation</div>
               {generating() ? 

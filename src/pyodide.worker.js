@@ -1,5 +1,5 @@
 async function processImages(data) {
-  const {screenshots: images, times, format, resizeFactor, packingMode} = data.payload;
+  const {screenshots: images, times, format, resizeFactor, packingMode, tolerance, allocation} = data.payload;
   await pyodide.runPythonAsync(`
     # Copyright (c) 2012, Sublime HQ Pty Ltd
     # All rights reserved.
@@ -41,9 +41,9 @@ async function processImages(data) {
 
     END_FRAME_PAUSE = 4000
 
-    SIMPLIFICATION_TOLERANCE = 512
+    SIMPLIFICATION_TOLERANCE = int('${tolerance}')
 
-    MAX_PACKED_HEIGHT = 20000
+    MAX_PACKED_HEIGHT = int('${allocation}')
 
     def slice_size(a, b):
       return (a.stop - a.start) * (b.stop - b.start)

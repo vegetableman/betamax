@@ -55,7 +55,7 @@ async function startRecording(data) {
     return;
   }
 
-  const { fileName, frameRate } = data;
+  const { fileName, frameRate, bitrate, mimeType } = data;
   const controller = new CaptureController();
   let media;
   try {
@@ -64,7 +64,9 @@ async function startRecording(data) {
       audio: false,
       video: {
         displaySurface: window.devicePixelRatio > 1.3 ? 'window': 'monitor',
-        cursor: 'always'
+        // https://bugs.chromium.org/p/chromium/issues/detail?id=1007177#c4
+        // Cursor remains inconsistent in mac
+        // cursor: 'always'
       },
       controller
     });
@@ -90,12 +92,15 @@ async function startRecording(data) {
       }
     }, 0);
   });
-  
-  recorder = new MediaRecorder(media, { 
-    mimeType: 'video/webm;codecs=vp9', 
-    // Setting bitrate helped solve issues with recording's having blurry opacity transitions.
-    videoBitsPerSecond : 2500000
-  });
+
+  let options = {};
+  if (mimeType) {
+    options.mimeType = mimeType;
+  }
+  if (bitrate) {
+    options.videoBitsPerSecond = bitrate;
+  }
+  recorder = new MediaRecorder(media, options);
 
   let times = [];
   let recordedChunks = [];
@@ -117,6 +122,7 @@ async function startRecording(data) {
     const canvas = document.createElement('canvas');
     canvas.width = region.width;
     canvas.height = region.height;
+    // canvas.style.imageRendering = 'pixelated';
     const context = canvas.getContext('2d');
 
     let startTime = 0.0;
@@ -145,7 +151,7 @@ async function startRecording(data) {
           times = [];
           postCapture(fileName);
         }
-      });
+      }, 'image/webp');
     }
     let vIntervalId;
     if (!isCancelled) {
@@ -165,8 +171,8 @@ async function startRecording(data) {
       chrome.runtime.sendMessage({type: 'remove_document', target: 'background', tabId});
     }
   }
-  
-  recorder.start();
+
+  recorder.start(1000 / frameRate);
 }
 
 async function stopRecording() {

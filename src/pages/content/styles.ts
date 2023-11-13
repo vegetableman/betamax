@@ -572,4 +572,7 @@ export const style = `
     border-color: transparent var(--white-87) transparent transparent;
     border-radius: 0 200px 0 0;
   }
+  .btm_advanced {
+    padding: 10px 0 0 12px;
+  }
 `;

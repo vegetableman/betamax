@@ -49,6 +49,8 @@ customElement("btm-frame", {}, () => {
   const [color, setColor] = createSignal(__BTM_COLOR_VALUE);
   const [offset, setOffset] = createSignal({left: 0, top: 0, width: 0, height: 0});
   const [showIntro, toggleIntro] = createSignal(false);
+  const [bitrate, setBitrate] = createSignal(null);
+  const [mimeType, setMimeType] = createSignal(null);
 
   const handleMouseDown = (event) => {
     if (isRecording() || isResizing()) {
@@ -145,6 +147,8 @@ customElement("btm-frame", {}, () => {
       target: 'background',
       payload: {
         frameRate: frameRate(),
+        bitrate: bitrate(),
+        mimeType: mimeType(),
         fileName: `betamax_${loc.domainWithoutSuffix}_${new Date().toLocaleString('sv-SE', { hour12: false}).replaceAll(/\-|:/g, '').replace(' ', '_')}.zip`
       }
     };
@@ -478,28 +482,52 @@ customElement("btm-frame", {}, () => {
                 }}/>
               </span>
           </div>
-          <div class="btm_config__row btm_config__row--element">
-              <span class="btm_config__row__label">
-                Add offset to adjust the captured result
-                <span class="btm_config__row__tooltip">
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-help-circle">
-                    <circle cx="12" cy="12" r="10"></circle><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"></path>
-                    <line x1="12" y1="17" x2="12.01" y2="17"></line>
-                  </svg>
-                  <span class="btm_config__row__tooltip_text">Set values ranging from -ve to +ve if you notice inaccurate cropping around the boundaries of the captured frame.</span>
-                </span>:
-              </span>
+          <details class="btm_advanced">
+            <summary>Advanced</summary>
+            <div class="btm_config__row">
+              <span class="btm_config__row__label">Video MIME: </span>
               <span class="btm_config__row__wrapper">
-                <div class="btm_config__region" style={{width: 150 + 'px', height: Math.round(150/(dimension().width/dimension().height)) + 'px'}}>
-                  <input type="text" class="btm_config__region--left" value={offset().left} onchange={updateOffset('left')}/>
-                  <input type="text" class="btm_config__region--top" value={offset().top} onchange={updateOffset('top')}/>
-                  <div class="btm_config__region--center">
-                    <input type="text" class="btm_config__region--width" value={offset().width} onchange={updateOffset('width')}/>x
-                    <input type="text" class="btm_config__region--height" value={offset().height} onchange={updateOffset('height')}/>
-                  </div>
-                </div>
+                <input class="btm_config__interval-input" placeholder="Ex: video/webm;codecs=vp9" type="text" style="width: 170px;" value={mimeType()} onchange={(e) => {
+                  let {value} = e.target;
+                  setMimeType(value);
+                }}/>
               </span>
-          </div>
+            </div>
+            <div class="btm_config__row">
+              <span class="btm_config__row__label">Bitrate: </span>
+              <span class="btm_config__row__wrapper">
+                <input class="btm_config__interval-input" type="text" style="width: 50px;" value={bitrate()} onchange={(e) => {
+                  let {value} = e.target;
+                  let v = parseInt(value);
+                  !Number.isNaN(v) && v > 0 && setBitrate(v);
+                }}/>
+              </span>
+            </div>
+            <div>
+              <div class="btm_config__row btm_config__row--element">
+                <span class="btm_config__row__label">
+                  Add offset to adjust the captured result
+                  <span class="btm_config__row__tooltip">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-help-circle">
+                      <circle cx="12" cy="12" r="10"></circle><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"></path>
+                      <line x1="12" y1="17" x2="12.01" y2="17"></line>
+                    </svg>
+                    <span class="btm_config__row__tooltip_text">Set values ranging from -ve to +ve if you notice inaccurate cropping around the boundaries of the captured frame.</span>
+                  </span>:
+                </span>
+                <span class="btm_config__row__wrapper">
+                  <div class="btm_config__region" style={{width: 150 + 'px', height: Math.round(150/(dimension().width/dimension().height)) + 'px'}}>
+                    <input type="text" class="btm_config__region--left" value={offset().left} onchange={updateOffset('left')}/>
+                    <input type="text" class="btm_config__region--top" value={offset().top} onchange={updateOffset('top')}/>
+                    <div class="btm_config__region--center">
+                      <input type="text" class="btm_config__region--width" value={offset().width} onchange={updateOffset('width')}/>x
+                      <input type="text" class="btm_config__region--height" value={offset().height} onchange={updateOffset('height')}/>
+                    </div>
+                  </div>
+                </span>
+              </div>
+            </div>
+          </details>
           <span title="Close" class="btm_config__close-btn" onclick={() => {
             toggleConfig((c) => !c);
           }}>
