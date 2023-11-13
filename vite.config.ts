@@ -45,6 +45,14 @@ export default defineConfig({
       src: root + '/vendor/jszip.min.js',
       dest: outDir + '/src/vendor'
     },
+    {
+      src: root + '/vendor/upng.js',
+      dest: outDir + '/src/vendor'
+    },
+    {
+      src: root + '/vendor/pako.min.js',
+      dest: outDir + '/src/vendor'
+    },
   ],  hook: 'writeBundle'
   }), WindiCSS(),  crx({ manifest })],
   resolve: {

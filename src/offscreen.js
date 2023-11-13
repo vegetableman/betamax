@@ -123,11 +123,13 @@ async function startRecording(data) {
     canvas.width = region.width;
     canvas.height = region.height;
     // canvas.style.imageRendering = 'pixelated';
-    const context = canvas.getContext('2d');
+    const context = canvas.getContext('2d', {willReadFrequently: true});
 
     let startTime = 0.0;
     let completions = 0;
     let paintCount = 0;
+
+    const frames = [];
 
     const processCapture = () => {
       now = performance.now().toFixed(3);
@@ -136,22 +138,29 @@ async function startRecording(data) {
       }
       const time = videoElement.currentTime;
       let t = Math.round(time * 1000);
+      console.log('t:', t);
       times.push(t);
       context.clearRect(0, 0, canvas.width, canvas.height);
       context.drawImage(videoElement, -region.left, -region.top);
+
+      const imageData = context.getImageData(0, 0, canvas.width, canvas.height);
+      frames.push(imageData.data.buffer);
+      // const compressedData = UPNG.encode([imageData.data.buffer], canvas.width, canvas.height, 256);
+      // const compressedBlob = new Blob([compressedData], { type: 'image/png' });
+      // zip.file(`${t}.png`, compressedBlob);
 
       const elapsed = (now - startTime) / 1000.0;
       const fps = (++paintCount / elapsed).toFixed(3);
       console.info('fps:', fps);
 
-      canvas.toBlob((blob) => {
-        completions++;
-        zip.file(`${t}.png`, blob);
-        if (completions === times.length) {
-          times = [];
-          postCapture(fileName);
-        }
-      }, 'image/webp');
+      // canvas.toBlob((blob) => {
+      //   completions++;
+      //   zip.file(`${t}.png`, blob);
+      //   if (completions === times.length) {
+      //     times = [];
+      //     postCapture(fileName);
+      //   }
+      // });
     }
     let vIntervalId;
     if (!isCancelled) {
@@ -164,6 +173,13 @@ async function startRecording(data) {
       });
       videoElement.addEventListener('ended', () => {
         clearInterval(vIntervalId);
+        // console.log('ended:', times, videoElement.currentTime, videoElement.duration)
+        frames.forEach((f, i) => {
+          const compressedData = UPNG.encode([f], canvas.width, canvas.height, 256);
+          const compressedBlob = new Blob([compressedData], { type: 'image/png' });
+          zip.file(`${times[i]}.png`, compressedBlob);
+        });
+        postCapture(fileName);
       });
       videoElement.play();
     } else {
