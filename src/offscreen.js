@@ -100,7 +100,7 @@ async function startRecording(data) {
   if (bitrate) {
     options.videoBitsPerSecond = bitrate;
   }
-  recorder = new MediaRecorder(media, options);
+  recorder = new MediaRecorder(media, {mimeType: 'video/webm;codecs=vp8'});
 
   let times = [];
   let recordedChunks = [];
@@ -115,7 +115,7 @@ async function startRecording(data) {
     chrome.runtime.sendMessage({type: 'capture_stopped', target: 'background', tabId});
     media.getTracks().forEach((t) => t.stop());
    
-    const blob = new Blob(recordedChunks, { type: 'video/webm' });
+    const blob = new Blob(recordedChunks, { type: 'video/webm;codecs=vp8' });
     const videoElement = document.createElement('video');
     videoElement.src = URL.createObjectURL(blob);
 
@@ -129,9 +129,9 @@ async function startRecording(data) {
     let completions = 0;
     let paintCount = 0;
 
-    const frames = [];
+    let frames = [];
 
-    const processCapture = () => {
+    const processCapture = async () => {
       now = performance.now().toFixed(3);
       if (startTime === 0.0) {
         startTime = now;
@@ -142,9 +142,15 @@ async function startRecording(data) {
       times.push(t);
       context.clearRect(0, 0, canvas.width, canvas.height);
       context.drawImage(videoElement, -region.left, -region.top);
+      // frames.push(await createImageBitmap(canvas));
+      createImageBitmap(canvas).then((imageBitmap) => {
+        // completions++;
+        // context.drawImage(imageBitmap,0,0);
+        frames.push(imageBitmap)
+      })
 
-      const imageData = context.getImageData(0, 0, canvas.width, canvas.height);
-      frames.push(imageData.data.buffer);
+      // const imageData = context.getImageData(0, 0, canvas.width, canvas.height);
+      // frames.push(imageData.data.buffer);
       // const compressedData = UPNG.encode([imageData.data.buffer], canvas.width, canvas.height, 256);
       // const compressedBlob = new Blob([compressedData], { type: 'image/png' });
       // zip.file(`${t}.png`, compressedBlob);
@@ -174,12 +180,29 @@ async function startRecording(data) {
       videoElement.addEventListener('ended', () => {
         clearInterval(vIntervalId);
         // console.log('ended:', times, videoElement.currentTime, videoElement.duration)
-        frames.forEach((f, i) => {
-          const compressedData = UPNG.encode([f], canvas.width, canvas.height, 256);
-          const compressedBlob = new Blob([compressedData], { type: 'image/png' });
-          zip.file(`${times[i]}.png`, compressedBlob);
-        });
-        postCapture(fileName);
+        // frames.forEach((f, i) => {
+        //   const compressedData = UPNG.encode([f], canvas.width, canvas.height, 256);
+        //   const compressedBlob = new Blob([compressedData], { type: 'image/png' });
+        //   zip.file(`${times[i]}.png`, compressedBlob);
+        // });
+        const canvas = document.createElement('canvas');
+        canvas.width = region.width;
+        canvas.height = region.height;
+        const context = canvas.getContext('bitmaprenderer');
+        frames.forEach((imageBitmap, i) => {
+          // context.drawImage(imageBitmap,0,0);
+          context.transferFromImageBitmap(imageBitmap);
+          canvas.toBlob((blob) => {
+            completions++;
+            zip.file(`${times[i]}.png`, blob);
+            if (completions === frames.length) {
+              frames = [];
+              postCapture(fileName);
+            }
+          });
+        // postCapture(fileName);
+        })
+          console.log(frames);
       });
       videoElement.play();
     } else {
