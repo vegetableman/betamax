@@ -350,7 +350,7 @@ const App = () => {
                 <option value="0">None (fastest)</option>
               </select>
             </div>
-            <details class="items-center flex flex-col p-2 w-full" open>
+            <details class="items-center flex flex-col p-2 w-full">
               <summary class="bg-[#ccc] py-[2px] px-[5px] cursor-pointer">Advanced</summary>
               <div class="flex flex-col w-full">
                   <div class="items-center flex p-3 py-4 justify-evenly">

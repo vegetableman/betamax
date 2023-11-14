@@ -50,7 +50,8 @@ customElement("btm-frame", {}, () => {
   const [offset, setOffset] = createSignal({left: 0, top: 0, width: 0, height: 0});
   const [showIntro, toggleIntro] = createSignal(false);
   const [bitrate, setBitrate] = createSignal(null);
-  const [mimeType, setMimeType] = createSignal(null);
+  const [mimeType, setMimeType] = createSignal('video/webm;codecs=vp9');
+  const [implementation, setImplementation] = createSignal('imc');
 
   const handleMouseDown = (event) => {
     if (isRecording() || isResizing()) {
@@ -149,6 +150,7 @@ customElement("btm-frame", {}, () => {
         frameRate: frameRate(),
         bitrate: bitrate(),
         mimeType: mimeType(),
+        implementation: implementation(),
         fileName: `betamax_${loc.domainWithoutSuffix}_${new Date().toLocaleString('sv-SE', { hour12: false}).replaceAll(/\-|:/g, '').replace(' ', '_')}.zip`
       }
     };
@@ -484,6 +486,23 @@ customElement("btm-frame", {}, () => {
           </div>
           <details class="btm_advanced">
             <summary>Advanced</summary>
+            <div class="btm_config__row">
+              <span class="btm_config__row__label">Implementation: </span>
+              <span class="btm_config__row__wrapper btm_config__row--impl">
+                <span class="btm_config__row__radio">
+                  <input type="radio" id="implementation" name="implementation" value="imc" checked={implementation() === 'imc'} onchange={() => {
+                    setImplementation('imc');
+                  }}/>
+                  <label for="implementation">Image Capture</label>
+                </span>
+                <span class="btm_config__row__radio">
+                  <input type="radio" id="implementation" name="implementation" value="mr" checked={implementation() === 'mr'} onchange={() => {
+                    setImplementation('mr');
+                  }}/>
+                  <label for="implementation">MediaRecorder</label>
+                </span>
+              </span>
+            </div>
             <div class="btm_config__row">
               <span class="btm_config__row__label">Video MIME: </span>
               <span class="btm_config__row__wrapper">

@@ -575,4 +575,19 @@ export const style = `
   .btm_advanced {
     padding: 10px 0 0 12px;
   }
+  .btm_config__row--impl {
+    display: flex;
+    align-items: flex-start;
+    width: 100%;
+  }
+  .btm_config__row--impl label {
+    font-size: 11px;
+  }
+  .btm_config__row__radio {
+    display: flex;
+    align-items: self-start;
+  }
+  .btm_config__row--impl .btm_config__row__radio:last-child {
+    margin-left: 5px;
+  }
 `;

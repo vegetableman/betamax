@@ -48,14 +48,139 @@ function postCapture(fileName) {
   })
 }
 
-let isOpen = false;
 
+function startMediaRecorder (media, {mimeType, bitrate, frameRate, fileName}) {
+  let options = {};
+  if (mimeType) {
+    options.mimeType = mimeType;
+  }
+  if (bitrate) {
+    options.videoBitsPerSecond = bitrate;
+  }
+  recorder = new MediaRecorder(media, options);
+
+  let times = [];
+  let recordedChunks = [];
+
+  recorder.ondataavailable = (event) => {
+    console.log('event', event);
+    if (event.data.size > 0) {
+      recordedChunks.push(event.data);
+    }
+  };
+  
+  recorder.onstop = () => {
+    chrome.runtime.sendMessage({type: 'capture_stopped', target: 'background', tabId});
+    media.getTracks().forEach((t) => t.stop());
+   
+    const blob = new Blob(recordedChunks, { type: options.mimeType || 'video/webm;codecs=vp9' });
+    const videoElement = document.createElement('video');
+    videoElement.src = URL.createObjectURL(blob);
+
+    const canvas = document.createElement('canvas');
+    canvas.width = region.width;
+    canvas.height = region.height;
+    const context = canvas.getContext('2d');
+
+    let startTime = 0.0;
+    let completions = 0;
+    let paintCount = 0;
+
+    const processCapture = async () => {
+      now = performance.now().toFixed(3);
+      if (startTime === 0.0) {
+        startTime = now;
+      }
+      const time = videoElement.currentTime;
+      let t = Math.round(time * 1000);
+      times.push(t);
+      context.clearRect(0, 0, canvas.width, canvas.height);
+      context.drawImage(videoElement, -region.left, -region.top);
+
+      const elapsed = (now - startTime) / 1000.0;
+      const fps = (++paintCount / elapsed).toFixed(3);
+      console.info('fps:', fps);
+
+      canvas.toBlob((blob) => {
+        completions++;
+        zip.file(`${t}.png`, blob);
+        if (completions === times.length) {
+          times = [];
+          postCapture(fileName);
+        }
+      });
+    }
+
+    if (!isCancelled) {
+      chrome.runtime.sendMessage({type: 'processing_capture', target: 'background', tabId});
+      videoElement.addEventListener('loadeddata', () => {
+        videoElement.currentTime = 1.0;
+        vIntervalId = setInterval(() => {
+          processCapture()
+        },  1000 / frameRate);
+      });
+      videoElement.addEventListener('ended', () => {
+        clearInterval(vIntervalId);
+      });
+      videoElement.play();
+    } else {
+      isCancelled = false;
+      chrome.runtime.sendMessage({type: 'remove_document', target: 'background', tabId});
+    }
+  }
+
+  recorder.start();
+}
+
+function startImageCapture(media, {frameRate, fileName}) {
+  let times = [];
+  let bitmaps = [];
+  let completions = 0;
+
+  const imageCapture = new ImageCapture(media.getVideoTracks()[0]);
+
+  let intervalId = setInterval(() => {
+    if (imageCapture.track && imageCapture.track.readyState === 'ended') {
+      console.log('ended');
+      chrome.runtime.sendMessage({type: 'capture_stopped', target: 'background', tabId});
+      clearInterval(intervalId);
+      media.getTracks().forEach((t) => t.stop());
+      const canvas = document.createElement('canvas');
+      canvas.width = region.width;
+      canvas.height = region.height;
+      const context = canvas.getContext('2d');
+      if (!isCancelled) {
+        chrome.runtime.sendMessage({type: 'processing_capture', target: 'background', tabId});
+        bitmaps.forEach((bmp, i) => {
+          context.drawImage(bmp, -region.left, -region.top);
+          canvas.toBlob((blob) => {
+            completions++;
+            zip.file(`${times[i]}.png`, blob);
+            if (completions === bitmaps.length) {
+              bitmaps = [];
+              postCapture(fileName);
+            }
+          });
+        });
+      } else {
+        isCancelled = false;
+        chrome.runtime.sendMessage({type: 'remove_document', target: 'background', tabId});
+      }
+    }
+    let now = parseInt(performance.now());
+    imageCapture.track && imageCapture.track.readyState === 'live' && imageCapture.grabFrame().then((bitmap) => {
+      times.push(now);
+      bitmaps.push(bitmap);
+    }).catch(() => {});
+  }, 1000 / frameRate);
+}
+
+let isOpen = false;
 async function startRecording(data) {
   if (isOpen) {
     return;
   }
 
-  const { fileName, frameRate, bitrate, mimeType } = data;
   const controller = new CaptureController();
   let media;
   try {
@@ -66,7 +191,7 @@ async function startRecording(data) {
         displaySurface: window.devicePixelRatio > 1.3 ? 'window': 'monitor',
         // https://bugs.chromium.org/p/chromium/issues/detail?id=1007177#c4
         // Cursor remains inconsistent in mac
-        // cursor: 'always'
+        cursor: 'always'
       },
       controller
     });
@@ -81,7 +206,7 @@ async function startRecording(data) {
     controller.setFocusBehavior("no-focus-change");
   } 
 
-  chrome.runtime.sendMessage({type: 'start_countdown', target: 'background', tabId, payload: {displaySurface}});
+  chrome.runtime.sendMessage({type: 'start_countdown', target: 'background', tabId, payload: { displaySurface }});
   
   // Wait for the countdown to finish
   await new Promise((resolve) => {
@@ -93,125 +218,11 @@ async function startRecording(data) {
     }, 0);
   });
 
-  let options = {};
-  if (mimeType) {
-    options.mimeType = mimeType;
+  if (data.implementation == 'mr') {
+    startMediaRecorder(media, data);
+  } else {
+    startImageCapture(media, data);
   }
-  if (bitrate) {
-    options.videoBitsPerSecond = bitrate;
-  }
-  recorder = new MediaRecorder(media, {mimeType: 'video/webm;codecs=vp8'});
-
-  let times = [];
-  let recordedChunks = [];
-
-  recorder.ondataavailable = (event) => {
-    if (event.data.size > 0) {
-      recordedChunks.push(event.data);
-    }
-  };
-  
-  recorder.onstop = () => {
-    chrome.runtime.sendMessage({type: 'capture_stopped', target: 'background', tabId});
-    media.getTracks().forEach((t) => t.stop());
-   
-    const blob = new Blob(recordedChunks, { type: 'video/webm;codecs=vp8' });
-    const videoElement = document.createElement('video');
-    videoElement.src = URL.createObjectURL(blob);
-
-    const canvas = document.createElement('canvas');
-    canvas.width = region.width;
-    canvas.height = region.height;
-    // canvas.style.imageRendering = 'pixelated';
-    const context = canvas.getContext('2d', {willReadFrequently: true});
-
-    let startTime = 0.0;
-    let completions = 0;
-    let paintCount = 0;
-
-    let frames = [];
-
-    const processCapture = async () => {
-      now = performance.now().toFixed(3);
-      if (startTime === 0.0) {
-        startTime = now;
-      }
-      const time = videoElement.currentTime;
-      let t = Math.round(time * 1000);
-      console.log('t:', t);
-      times.push(t);
-      context.clearRect(0, 0, canvas.width, canvas.height);
-      context.drawImage(videoElement, -region.left, -region.top);
-      // frames.push(await createImageBitmap(canvas));
-      createImageBitmap(canvas).then((imageBitmap) => {
-        // completions++;
-        // context.drawImage(imageBitmap,0,0);
-        frames.push(imageBitmap)
-      })
-
-      // const imageData = context.getImageData(0, 0, canvas.width, canvas.height);
-      // frames.push(imageData.data.buffer);
-      // const compressedData = UPNG.encode([imageData.data.buffer], canvas.width, canvas.height, 256);
-      // const compressedBlob = new Blob([compressedData], { type: 'image/png' });
-      // zip.file(`${t}.png`, compressedBlob);
-
-      const elapsed = (now - startTime) / 1000.0;
-      const fps = (++paintCount / elapsed).toFixed(3);
-      console.info('fps:', fps);
-
-      // canvas.toBlob((blob) => {
-      //   completions++;
-      //   zip.file(`${t}.png`, blob);
-      //   if (completions === times.length) {
-      //     times = [];
-      //     postCapture(fileName);
-      //   }
-      // });
-    }
-    let vIntervalId;
-    if (!isCancelled) {
-      chrome.runtime.sendMessage({type: 'processing_capture', target: 'background', tabId});
-      videoElement.addEventListener('loadeddata', () => {
-        videoElement.currentTime = 1.0;
-        vIntervalId = setInterval(() => {
-          processCapture()
-        },  1000 / frameRate);
-      });
-      videoElement.addEventListener('ended', () => {
-        clearInterval(vIntervalId);
-        // console.log('ended:', times, videoElement.currentTime, videoElement.duration)
-        // frames.forEach((f, i) => {
-        //   const compressedData = UPNG.encode([f], canvas.width, canvas.height, 256);
-        //   const compressedBlob = new Blob([compressedData], { type: 'image/png' });
-        //   zip.file(`${times[i]}.png`, compressedBlob);
-        // });
-        const canvas = document.createElement('canvas');
-        canvas.width = region.width;
-        canvas.height = region.height;
-        const context = canvas.getContext('bitmaprenderer');
-        frames.forEach((imageBitmap, i) => {
-          // context.drawImage(imageBitmap,0,0);
-          context.transferFromImageBitmap(imageBitmap);
-          canvas.toBlob((blob) => {
-            completions++;
-            zip.file(`${times[i]}.png`, blob);
-            if (completions === frames.length) {
-              frames = [];
-              postCapture(fileName);
-            }
-          });
-        // postCapture(fileName);
-        })
-          console.log(frames);
-      });
-      videoElement.play();
-    } else {
-      isCancelled = false;
-      chrome.runtime.sendMessage({type: 'remove_document', target: 'background', tabId});
-    }
-  }
-
-  recorder.start(1000 / frameRate);
 }
 
 async function stopRecording() {
