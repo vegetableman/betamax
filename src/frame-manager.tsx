@@ -183,6 +183,7 @@ const App = () => {
       toggleTransition(false);
       prevImage();
     } else if (e.shiftKey && e.ctrlKey && e.key === 'Delete') {
+      e.preventDefault();
       setScreenshots((ss) => {
         const ss_ = [...ss];
         ss_.splice(currentImage() + 1);
@@ -353,7 +354,7 @@ const App = () => {
               </select>
             </div>
             <details class="flex w-full flex-col items-center p-2">
-              <summary class="cursor-pointer bg-[#ccc] px-[5px] py-[2px]">Advanced</summary>
+              <summary class="m-auto max-w-[fit-content] cursor-pointer bg-[#ccc] px-[5px] py-[2px]">Advanced</summary>
               <div class="flex w-full flex-col">
                 <div class="flex items-center justify-evenly px-3 pt-4">
                   <span class="pr-2 text-sm text-[#333]">Simplification Tolerance</span> 

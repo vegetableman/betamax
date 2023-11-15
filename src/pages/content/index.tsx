@@ -53,7 +53,7 @@ customElement("btm-frame", {}, () => {
   const [showIntro, toggleIntro] = createSignal(false);
   const [bitrate, setBitrate] = createSignal(null);
   const [mimeType, setMimeType] = createSignal('video/webm;codecs=vp9');
-  const [implementation, setImplementation] = createSignal('imc');
+  const [implementation, setImplementation] = createSignal(dpr > 1 ? 'imc': 'mr');
 
   const handleMouseDown = (event) => {
     if (isRecording() || isResizing()) {
@@ -153,7 +153,7 @@ customElement("btm-frame", {}, () => {
         bitrate: bitrate(),
         mimeType: mimeType(),
         implementation: implementation(),
-        fileName: `betamax_${loc.domainWithoutSuffix}_${new Date().toLocaleString('sv-SE', { hour12: false}).replaceAll(/\-|:/g, '').replace(' ', '_')}.zip`
+        fileName: `betamax_${loc.domainWithoutSuffix}_${new Date().toLocaleString('sv-SE', { hour12: false}).replaceAll(/-|:/g, '').replace(' ', '_')}.zip`
       }
     };
     chrome.runtime.sendMessage(messageToBgScript);
@@ -492,13 +492,13 @@ customElement("btm-frame", {}, () => {
               <span class="btm_config__row__label">Implementation: </span>
               <span class="btm_config__row__wrapper btm_config__row--impl">
                 <span class="btm_config__row__radio">
-                  <input type="radio" id="implementation-imc" name="implementation-imc" value="imc" checked={implementation() === 'imc'} onchange={() => {
+                  <input type="radio" id="implementation-imc" name="implementation-imc" value="imc" checked={implementation() === 'imc'} onChange={() => {
                     setImplementation('imc');
                   }}/>
                   <label for="implementation-imc">Image Capture</label>
                 </span>
                 <span class="btm_config__row__radio">
-                  <input type="radio" id="implementation-mr" name="implementation-mr" value="mr" checked={implementation() === 'mr'} onchange={() => {
+                  <input type="radio" id="implementation-mr" name="implementation-mr" value="mr" checked={implementation() === 'mr'} onChange={() => {
                     setImplementation('mr');
                   }}/>
                   <label for="implementation-mr">MediaRecorder</label>
@@ -508,8 +508,8 @@ customElement("btm-frame", {}, () => {
             <div class="btm_config__row">
               <span class="btm_config__row__label">Video MIME: </span>
               <span class="btm_config__row__wrapper">
-                <input class="btm_config__interval-input" placeholder="Ex: video/webm;codecs=vp9" type="text" style="width: 170px;" value={mimeType()} onchange={(e) => {
-                  let {value} = e.target;
+                <input class="btm_config__interval-input" placeholder="Ex: video/webm;codecs=vp9" type="text" style={{"width":"170px"}} value={mimeType()} onChange={(e) => {
+                  const {value} = e.target;
                   setMimeType(value);
                 }}/>
               </span>
@@ -517,9 +517,9 @@ customElement("btm-frame", {}, () => {
             <div class="btm_config__row">
               <span class="btm_config__row__label">Bitrate: </span>
               <span class="btm_config__row__wrapper">
-                <input class="btm_config__interval-input" type="text" style="width: 50px;" value={bitrate()} onchange={(e) => {
-                  let {value} = e.target;
-                  let v = parseInt(value);
+                <input class="btm_config__interval-input" type="text" style={{"width":"50px"}} value={bitrate()} onChange={(e) => {
+                  const {value} = e.target;
+                  const v = parseInt(value);
                   !Number.isNaN(v) && v > 0 && setBitrate(v);
                 }}/>
               </span>
@@ -530,26 +530,26 @@ customElement("btm-frame", {}, () => {
                   Add offset to adjust the captured result
                   <span class="btm_config__row__tooltip">
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-help-circle">
-                      <circle cx="12" cy="12" r="10"></circle><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"></path>
-                      <line x1="12" y1="17" x2="12.01" y2="17"></line>
+                      <circle cx="12" cy="12" r="10" /><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3" />
+                      <line x1="12" y1="17" x2="12.01" y2="17" />
                     </svg>
                     <span class="btm_config__row__tooltip_text">Set values ranging from -ve to +ve if you notice inaccurate cropping around the boundaries of the captured frame.</span>
                   </span>:
                 </span>
                 <span class="btm_config__row__wrapper">
                   <div class="btm_config__region" style={{width: 150 + 'px', height: Math.round(150/(dimension().width/dimension().height)) + 'px'}}>
-                    <input type="text" class="btm_config__region--left" value={offset().left} onchange={updateOffset('left')}/>
-                    <input type="text" class="btm_config__region--top" value={offset().top} onchange={updateOffset('top')}/>
+                    <input type="text" class="btm_config__region--left" value={offset().left} onChange={updateOffset('left')}/>
+                    <input type="text" class="btm_config__region--top" value={offset().top} onChange={updateOffset('top')}/>
                     <div class="btm_config__region--center">
-                      <input type="text" class="btm_config__region--width" value={offset().width} onchange={updateOffset('width')}/>x
-                      <input type="text" class="btm_config__region--height" value={offset().height} onchange={updateOffset('height')}/>
+                      <input type="text" class="btm_config__region--width" value={offset().width} onChange={updateOffset('width')}/>x
+                      <input type="text" class="btm_config__region--height" value={offset().height} onChange={updateOffset('height')}/>
                     </div>
                   </div>
                 </span>
               </div>
             </div>
           </details>
-          <span title="Close" class="btm_config__close-btn" onclick={() => {
+          <span title="Close" class="btm_config__close-btn" onClick={() => {
             toggleConfig((c) => !c);
           }}>
             <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" class="feather feather-x"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
