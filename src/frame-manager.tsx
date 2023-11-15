@@ -321,7 +321,12 @@ const App = () => {
               }}>About</div>
 
             </div>
-            {exampleFileName() && <div class="text-center max-w-[90%] break-all">Recently downloaded file name: <b style="font-weight: 600;">{exampleFileName()}</b></div>}
+            {exampleFileName() && 
+              <div class="text-center max-w-[90%] break-all text-[#555] mb-1">
+              Recently downloaded file name:
+              <br/> 
+              <b style="font-weight: 600; text-[#666]">{exampleFileName()}</b>
+            </div>}
             <div class="items-center flex p-2">
               <span class="text-sm pr-2 text-[#333]">Resize factor</span> 
               <select class="p-[5px] border-2 border-solid border-[#777] text-[#555] rounded-sm my-[10px] text-xs w-16 ml-1 font-medium cursor-pointer" onchange={(e) => {
@@ -353,7 +358,7 @@ const App = () => {
             <details class="items-center flex flex-col p-2 w-full">
               <summary class="bg-[#ccc] py-[2px] px-[5px] cursor-pointer">Advanced</summary>
               <div class="flex flex-col w-full">
-                  <div class="items-center flex p-3 py-4 justify-evenly">
+                  <div class="items-center flex px-3 pt-4 justify-evenly">
                   <span class="text-sm pr-2 text-[#333]">Simplification Tolerance</span> 
                   <input type="text" value={tolerance()} class="p-[5px] border-2 border-solid border-[#777] text-[#555] rounded-sm max-w-[70px]" onchange={(e) => {
                     let {value} = e.target;
@@ -361,7 +366,7 @@ const App = () => {
                     !Number.isNaN(v) && v > 0 && setTolerance(v);
                   }}></input>
                 </div>
-                <div class="items-center flex p-3 py-4 pr-[2px] justify-around">
+                <div class="items-center flex px-3 pt-4 pr-[2px] justify-around">
                   <span class="text-sm pr-2 text-[#333]">Allocation Size</span> 
                   <input type="text" value={allocation()} class="p-[5px] border-2 border-solid border-[#777] text-[#555] rounded-sm max-w-[70px]" onchange={(e) => {
                     let {value} = e.target;

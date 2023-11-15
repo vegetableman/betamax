@@ -586,6 +586,7 @@ export const style = `
   .btm_config__row__radio {
     display: flex;
     align-items: self-start;
+    cursor: pointer;
   }
   .btm_config__row--impl .btm_config__row__radio:last-child {
     margin-left: 5px;

@@ -173,7 +173,6 @@ customElement("btm-frame", {}, () => {
     await new Promise((resolve) => {
       const id = setInterval(() => {
         if (countDown() === 1) {
-          chrome.runtime.sendMessage({type: 'continue_capture', target: 'background'});
           clearInterval(id);
           resolve(true);
         }
@@ -183,6 +182,8 @@ customElement("btm-frame", {}, () => {
       }, 1000);
     });
     setIsStarting(false);
+    await delay(100);
+    chrome.runtime.sendMessage({type: 'continue_capture', target: 'background'});
     setIsRecording(true);
     setTime(updateDisplayTime());
     timerId = setInterval(() => {
@@ -490,16 +491,16 @@ customElement("btm-frame", {}, () => {
               <span class="btm_config__row__label">Implementation: </span>
               <span class="btm_config__row__wrapper btm_config__row--impl">
                 <span class="btm_config__row__radio">
-                  <input type="radio" id="implementation" name="implementation" value="imc" checked={implementation() === 'imc'} onchange={() => {
+                  <input type="radio" id="implementation-imc" name="implementation-imc" value="imc" checked={implementation() === 'imc'} onchange={() => {
                     setImplementation('imc');
                   }}/>
-                  <label for="implementation">Image Capture</label>
+                  <label for="implementation-imc">Image Capture</label>
                 </span>
                 <span class="btm_config__row__radio">
-                  <input type="radio" id="implementation" name="implementation" value="mr" checked={implementation() === 'mr'} onchange={() => {
+                  <input type="radio" id="implementation-mr" name="implementation-mr" value="mr" checked={implementation() === 'mr'} onchange={() => {
                     setImplementation('mr');
                   }}/>
-                  <label for="implementation">MediaRecorder</label>
+                  <label for="implementation-mr">MediaRecorder</label>
                 </span>
               </span>
             </div>

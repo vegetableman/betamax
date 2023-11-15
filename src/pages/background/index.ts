@@ -48,7 +48,6 @@ chrome.runtime.onMessage.addListener(async (message, sender, sendResponse) => {
     });
   } else if (message.type === 'remove_document') {
     try {
-      console.log('remove_document')
       // @ts-expect-error
       await chrome.offscreen.closeDocument();
     } catch(error) {
