@@ -63,7 +63,6 @@ function startMediaRecorder (media, {mimeType, bitrate, frameRate, fileName}) {
   let recordedChunks = [];
 
   recorder.ondataavailable = (event) => {
-    console.log('event', event);
     if (event.data.size > 0) {
       recordedChunks.push(event.data);
     }
@@ -141,7 +140,6 @@ function startImageCapture(media, {frameRate, fileName}) {
 
   let intervalId = setInterval(() => {
     if (imageCapture.track && imageCapture.track.readyState === 'ended') {
-      console.log('ended');
       chrome.runtime.sendMessage({type: 'capture_stopped', target: 'background', tabId});
       clearInterval(intervalId);
       media.getTracks().forEach((t) => t.stop());
@@ -151,8 +149,8 @@ function startImageCapture(media, {frameRate, fileName}) {
       const context = canvas.getContext('2d');
       if (!isCancelled) {
         chrome.runtime.sendMessage({type: 'processing_capture', target: 'background', tabId});
-        bitmaps.forEach((bmp, i) => {
-          context.drawImage(bmp, -region.left, -region.top);
+        bitmaps.forEach(async (bmp, i) => {
+          context.drawImage(await bmp, 0, 0);
           canvas.toBlob((blob) => {
             completions++;
             zip.file(`${times[i]}.png`, blob);
@@ -170,19 +168,19 @@ function startImageCapture(media, {frameRate, fileName}) {
     let now = parseInt(performance.now());
     imageCapture.track && imageCapture.track.readyState === 'live' && imageCapture.grabFrame().then((bitmap) => {
       times.push(now);
-      bitmaps.push(bitmap);
+      bitmaps.push(createImageBitmap(bitmap, region.left, region.top, region.width, region.height));
     }).catch(() => {});
   }, 1000 / frameRate);
 }
 
 let isOpen = false;
+let media;
 async function startRecording(data) {
   if (isOpen) {
     return;
   }
 
   const controller = new CaptureController();
-  let media;
   try {
     isOpen = true;
     media = await navigator.mediaDevices.getDisplayMedia({
@@ -201,6 +199,7 @@ async function startRecording(data) {
   }
 
   const settings = media.getTracks()[0].getSettings();
+  console.info('Track settings: ', settings);
   const displaySurface = settings.displaySurface;
   if (displaySurface === "window") {
     controller.setFocusBehavior("no-focus-change");
@@ -221,6 +220,8 @@ async function startRecording(data) {
   if (data.implementation == 'mr') {
     startMediaRecorder(media, data);
   } else {
+    // Color conversion issues when it comes to ImageCapture
+    // https://source.chromium.org/chromium/chromium/src/+/main:third_party/blink/renderer/modules/imagecapture/README.md
     startImageCapture(media, data);
   }
 }
@@ -228,5 +229,7 @@ async function startRecording(data) {
 async function stopRecording() {
   if (recorder) {
     recorder.stop();
+  } else {
+    media.getTracks().forEach((t) => t.stop());
   }
 }
