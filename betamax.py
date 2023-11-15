@@ -27,6 +27,10 @@ import io
 import base64
 import json
 import cv2
+import sys
+import re
+import os
+import hashlib
 import imageio.v3 as iio
 from PIL import Image
 from numpy import *
@@ -40,7 +44,7 @@ END_FRAME_PAUSE = 4000
 
 SIMPLIFICATION_TOLERANCE = 512
 
-MAX_PACKED_HEIGHT = 20000
+MAX_PACKED_HEIGHT = 200000
 
 def slice_size(a, b):
   return (a.stop - a.start) * (b.stop - b.start)
@@ -62,18 +66,18 @@ def slices_intersect(a, b, c, d):
 def simplify(boxes, tol = 0):
   out = []
   for a,b in boxes:
-      sz1 = slice_size(a, b)
-      did_combine = False
-      for i in range(len(out)):
-          c,d = out[i]
-          cu, cv = combine_slices(a, b, c, d)
-          sz2 = slice_size(c, d)
-          if slices_intersect(a, b, c, d) or (slice_size(cu, cv) <= sz1 + sz2 + tol):
-              out[i] = (cu, cv)
-              did_combine = True
-              break
-      if not did_combine:
-          out.append((a,b))
+    sz1 = slice_size(a, b)
+    did_combine = False
+    for i in range(len(out)):
+      c,d = out[i]
+      cu, cv = combine_slices(a, b, c, d)
+      sz2 = slice_size(c, d)
+      if slices_intersect(a, b, c, d) or (slice_size(cu, cv) <= sz1 + sz2 + tol):
+        out[i] = (cu, cv)
+        did_combine = True
+        break
+    if not did_combine:
+      out.append((a,b))
 
   if tol != 0:
     return simplify(out, 0)
@@ -174,82 +178,79 @@ def slice_tuple_size(s):
   a, b = s
   return (a.stop - a.start) * (b.stop - b.start)
 
-images = []
-str_urls = '${JSON.stringify(images)}'
-urls = json.loads(str_urls)
-times_ = json.loads('${JSON.stringify(times)}')
-times = []
-last_url = ''
-i = 0
-print(f"Reading Images...")
+def to_native(d):
+  if isinstance(d, dict):
+      return {k: to_native(v) for k, v in d.items()}
+  if isinstance(d, list):
+      return [to_native(i) for i in d]
+  if type(d).__module__ == 'numpy':
+      return to_native(d.tolist())
+  return d
 
-try:
-  for u in urls:
-    if u == last_url:
-      i = i + 1
-      continue
-    last_url = u;
-    # Remove the "data:image/<image_format>;base64," prefix
-    base64_data = u.split(",")[1]
+def generate_animation(anim_name):
+  frames = []
+  set_printoptions(threshold=inf)
+  rex = re.compile("([0-9]+).png")
+  counter = 0
+  for f in os.listdir(anim_name):
+      m = re.search(rex, f)
+      if m:
+          frames.append((int(m.group(1)), anim_name + "/" + f))
+  frames.sort()
+  last_sha256 = None
+  images = []
+  times = []
+  for t, f in frames:
+    # Duplicate frames results in opencv terminating
+    # the process with a SIGKILL during matchTemplate
+    with open(f, 'rb') as h:
+        sha256 = hashlib.sha256(h.read()).digest()
+    if sha256 == last_sha256:
+        continue
+    last_sha256 = sha256
 
-    # Decode the Base64 data into binary form
-    image_data = base64.b64decode(base64_data)
-    im = iio.imread(io.BytesIO(image_data))
-
+    im = iio.imread(f)
     height, width, _ = im.shape
-    r = '${resizeFactor}'
-    if r != 'null':
-      r = float(r)
-      im = cv2.resize(im, (0, 0), fx=r, fy=r)
     if im.shape[2] == 4:
-      im = im[:,:,:3]
+        im = im[:,:,:3]
     images.append(im)
-    times.append(int(times_[i]))
-    i = i + 1
-    
-  t0 = time() - t0
-  print(f"Finished in {round(t0, 2)}s")
-
-  t1 = time()
-
-  print(f"Diffing Images...")
+    times.append(t)
 
   zero = images[0] - images[0]
   pairs = zip([zero] + images[:-1], images)
   diffs = [sign((b - a).max(2)) for a, b in pairs]
 
+  # Find different objects for each frame
   img_areas = [nd.find_objects(nd.label(d)[0]) for d in diffs]
 
+  # The simplify function provided can be used to simplify a set of boxes (rectangles) by merging overlapping or adjacent boxes into larger composite boxes. The resulting simplified set of boxes aims to minimize the number of additional pixels included in the overall representation.
   img_areas = [simplify(x, SIMPLIFICATION_TOLERANCE) for x in img_areas]
 
-  t1 = time() - t1
-  print(f"Finished in {round(t1, 2)}s")
-  
   ih, iw, _ = shape(images[0])
 
+  # Generate a packed image
   allocator = Allocator2D(MAX_PACKED_HEIGHT, iw)
   packed = zeros((MAX_PACKED_HEIGHT, iw, 3), dtype=uint8)
 
+  # Sort the rects to be packed by largest size first, to improve the packing
   rects_by_size = []
   for i in range(len(images)):
     src_rects = img_areas[i]
 
     for j in range(len(src_rects)):
-        rects_by_size.append((slice_tuple_size(src_rects[j]), i, j))
+      rects_by_size.append((slice_tuple_size(src_rects[j]), i, j))
 
   rects_by_size.sort(reverse = True)
 
-  allocs = [[None] * len(src_rects) for src_rects in img_areas]
-
   total_rects = len(rects_by_size)
 
-  print(f"Found {total_rects} differing regions.")
+  allocs = [[None] * len(src_rects) for src_rects in img_areas]
 
-  t2 = time()
-  print(f"Packing those differences...")
+  print("%s packing, num rects: %d num frames: %s" % (anim_name, len(rects_by_size),  len(images)))
 
-  rc = 1;
-  packing_mode = float('${packingMode}') if '${packingMode}' != 'null' else 1.0
+  t0 = time()
+
+  rc = 1
   for size,i,j in rects_by_size:
     print(f"{rc}/{total_rects}")
     src = images[i]
@@ -259,55 +260,53 @@ try:
     sx, sy = b.start, a.start
     w, h = b.stop - b.start, a.stop - a.start
 
-    if packing_mode > 0:
-      existing = find_matching_rect(allocator.bitmap, allocator.num_used_rows, packed, src, sx, sy, w, h, packing_mode)
-      if existing:
-        dy, dx = existing
-        allocs[i][j] = (dy, dx)
-      else:
-        dy, dx = allocator.allocate(w, h)
-        allocs[i][j] = (dy, dx)
-        packed[dy:dy+h, dx:dx+w] = src[sy:sy+h, sx:sx+w]
-    else:
-      dy, dx = allocator.allocate(w, h)
+    # See if the image data already exists in the packed image. This takes
+    # a long time, but results in worthwhile space savings (20% in one
+    # test)
+    existing = find_matching_rect(allocator.bitmap, allocator.num_used_rows, packed, src, sx, sy, w, h, 1.0)
+    if existing:
+      dy, dx = existing
       allocs[i][j] = (dy, dx)
-      packed[dy:dy+h, dx:dx+w] = src[sy:sy+h, sx:sx+w]
-
+    else:
+      result = allocator.allocate(w, h)
+      if result != None:
+        dy, dx = result
+        allocs[i][j] = (dy, dx)
+        
+        packed[dy:dy+h, dx:dx+w] = src[sy:sy+h, sx:sx+w]
     rc = rc + 1
+
+  print("%s packing finished, took: %fs" % (anim_name, time() - t0))
 
   packed = packed[0:allocator.num_used_rows]
 
-  t2 = time() - t2
-  print(f"Finished in {round(t2, 2)}s")
-
-  t3 = time()
-  print(f"Writing the image...")
-
-  buffer = io.BytesIO()
-  iio.imwrite(buffer, packed, extension='.${format}')
-  
-  t3 = time() - t3
-  print(f"Finished in {round(t3, 2)}s")
+  iio.imwrite(anim_name + "_packed_tmp.png", packed)
 
   # Don't completely fail if we don't have pngcrush
   if os.system("pngcrush -q " + anim_name + "_packed_tmp.png " + anim_name + "_packed.png") == 0:
-      os.system("rm " + anim_name + "_packed_tmp.png")
+    os.system("rm " + anim_name + "_packed_tmp.png")
   else:
-      print("pngcrush not found, unable to reduce filesize")
-      os.system("mv " + anim_name + "_packed_tmp.png " + anim_name + "_packed.png")
+    print("pngcrush not found, unable to reduce filesize")
+    os.system("mv " + anim_name + "_packed_tmp.png " + anim_name + "_packed.png")
 
   # Try to use pngquant since it can significantly reduce filesize for screencasts
   # that don't include photos or other sources of many different colors
   if os.system("pngquant -o " + anim_name + "_quant.png " + anim_name + "_packed.png") == 0:
-      os.system("mv " + anim_name + "_quant.png " + anim_name + "_packed.png")
+    os.system("mv " + anim_name + "_quant.png " + anim_name + "_packed.png")
   else:
-      print("pngquant not found, unable to reduce filesize")
+    print("pngquant not found, unable to reduce filesize")
 
-  print(f"Creating the timeline...")
+  print(f"{times}")
+
+  # Generate JSON to represent the data
   delays = (array(times[1:] + [times[-1] + END_FRAME_PAUSE]) - array(times)).tolist()
-  
+
+  allocs = [[(0, 0) if item is None else item for item in sublist] for sublist in allocs]
+
+  print(f"{allocs}")
+
   timeline = []
-  for i in range(len(images)):
+  for i in range(len(allocs)):
     src_rects = img_areas[i]
     dst_rects = allocs[i]
     blitlist = []
@@ -321,10 +320,14 @@ try:
       blitlist.append([dx, dy, w, h, sx, sy])
 
     timeline.append({'delay': delays[i], 'blit': blitlist})
-  
-  t = time() - t
-  print(f"Total time: {round(t, 2)}s")
-except Exception as e:
-  exception_str = str(e)
-  print(f"Error generating the result:")
-  print(f"{exception_str}")
+
+  print(f"{timeline}")
+
+  f = open('%s_anim.js' % anim_name, 'wb')
+  f.write(("%s_timeline = " % anim_name).encode('utf-8'))
+  f.write(json.dumps(to_native(timeline)).encode('utf-8'))
+  f.close()
+
+
+if __name__ == '__main__':
+    generate_animation(sys.argv[1])
