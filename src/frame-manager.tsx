@@ -398,9 +398,10 @@ const App = () => {
                 showOutput(false);
               }
             }} class="absolute left-0 top-0 z-20 flex h-full w-full items-center justify-center bg-zinc-800">
-              <div class="absolute left-[25px] top-[25px] w-28">
+              <figure class="absolute left-[25px] top-[25px] w-28">
                 <img src="./assets/img/logo-full.svg"/>
-              </div>
+                <figcaption class="pt-1 text-right text-[10px] font-bold italic text-[mediumpurple]">BETA</figcaption>
+              </figure>
               <span class="absolute right-[20px] top-[16px] cursor-pointer text-[20px] text-gray-400 hover:text-white" onClick={() => {
                 showOutput(false);
               }}>

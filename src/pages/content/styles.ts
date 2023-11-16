@@ -575,6 +575,9 @@ export const style = `
   .btm_advanced {
     padding: 10px 0 0 12px;
   }
+  .btm_advanced summary {
+    cursor: pointer;
+  }
   .btm_config__row--impl {
     display: flex;
     align-items: flex-start;

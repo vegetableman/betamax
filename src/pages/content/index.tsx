@@ -5,7 +5,7 @@ import { For, createEffect, createSignal, onCleanup, onMount } from "solid-js";
 import { customElement } from "solid-element";
 import { parse } from 'tldts';
 import { Resizer, Tooltip, tooltipStyle } from './components';
-import { delay, evenOut } from './utils';
+import { delay } from './utils';
 import { __BTM_COLOR_VAR, TITLE_BAR_HEIGHT, MIRROR_FRAME_HEIGHT, style } from './styles';
 
 let __BTM_COLOR_VALUE;
@@ -27,6 +27,7 @@ let startCountdown;
 customElement("btm-frame", {}, () => {
   let frame;
   const dpr = window.devicePixelRatio;
+  const isHighDPI = dpr > 1.3;
   const [mousePosition, setMousePosition] = createSignal({ x: 0, y: 0 });
   const [elementOffset, setElementOffset] = createSignal({ 
     x: __BTM_POSITION_OBJ?.x ?? window.innerWidth/2 - MIN_WIDTH, 
@@ -41,7 +42,7 @@ customElement("btm-frame", {}, () => {
   const [isResizing, setIsResizing] = createSignal(false);
   const [isProcessing, setIsProcessing] = createSignal(false);
   const [showBottomTitleBar, toggleBottomTitleBar] = createSignal(false);
-  const [selectedEl, setSelectedEl] = createSignal(null);
+  const [selectedEl, setSelectedEl] = createSignal({value: null});
   const [dimension, setDimension] = createSignal({
     width: __BTM_DIMENSION_OBJ?.width ?? 400, 
     height:__BTM_DIMENSION_OBJ?.height ?? (450 + FRAME_SIZE)
@@ -53,7 +54,7 @@ customElement("btm-frame", {}, () => {
   const [showIntro, toggleIntro] = createSignal(false);
   const [bitrate, setBitrate] = createSignal(null);
   const [mimeType, setMimeType] = createSignal('video/webm;codecs=vp9');
-  const [implementation, setImplementation] = createSignal(dpr > 1 ? 'imc': 'mr');
+  const [implementation, setImplementation] = createSignal('imc');
 
   const handleMouseDown = (event) => {
     if (isRecording() || isResizing()) {
@@ -132,14 +133,14 @@ customElement("btm-frame", {}, () => {
 
   function calculateRegion(displaySurface) {
     const dpr = window.devicePixelRatio;
-    const offsetTop = dpr > 1 && displaySurface === 'window' ? (TITLE_BAR_HEIGHT * dpr) + ((window.outerHeight - window.innerHeight) * dpr) 
-      : dpr > 1 ? (screen.height - window.innerHeight) + TITLE_BAR_HEIGHT : (screen.height - window.innerHeight);
+    const offsetTop = isHighDPI && displaySurface === 'window' ? (TITLE_BAR_HEIGHT * dpr) + ((window.outerHeight - window.innerHeight) * dpr) 
+      : isHighDPI ? (screen.height - window.innerHeight) + TITLE_BAR_HEIGHT : (screen.height - window.innerHeight);
     const captureDpr = displaySurface === 'window' ? dpr : 1;
     return {
-      left: evenOut(elementOffset().x * captureDpr) + offset().left,
-      top: evenOut((elementOffset().y  * captureDpr) + offsetTop, -1) + offset().top, 
-      width: evenOut(dimension().width * captureDpr) + offset().width,
-      height: evenOut((dimension().height - FRAME_SIZE) * captureDpr) - 2 + offset().height
+      left: (elementOffset().x * captureDpr) + offset().left,
+      top: ((elementOffset().y  * captureDpr) + offsetTop) + offset().top,
+      width: (dimension().width * captureDpr) + offset().width,
+      height: ((dimension().height - FRAME_SIZE) * captureDpr) - 2 + offset().height
     }
   }
 
@@ -227,6 +228,37 @@ customElement("btm-frame", {}, () => {
   });
 
   createEffect(() => {
+    if (!selectedEl()) {
+      return;
+    }
+    
+    let el;
+    try {
+      el = document.querySelector(selectedEl().value);
+    } catch {
+      return;
+    }
+    if (!el) {
+      return;
+    }
+    const rect = el.getBoundingClientRect();
+    const selectionOffset = 5;
+    setElementOffset({
+      x: rect.left - selectionOffset,
+      y: rect.top - TITLE_BAR_HEIGHT - selectionOffset,
+    });
+    let h;
+    if (rect.bottom >= window.innerHeight) {
+      h = rect.height + FRAME_SIZE + selectionOffset;
+    } else {
+      h = rect.height + MIRROR_FRAME_HEIGHT;
+    }
+    setDimension({width: rect.width + (2 * selectionOffset), height: h});
+    toggleConfig(false);
+    setupBottomTitleBar();
+  });
+
+  createEffect(() => {
     sessionStorage.setItem(__BTM_WINDOW_POSITION_KEY, JSON.stringify(elementOffset()));
     sessionStorage.setItem(__BTM_WINDOW_DIMENSION_KEY, JSON.stringify(dimension()));
   });
@@ -261,38 +293,6 @@ customElement("btm-frame", {}, () => {
     document.removeEventListener('completion', processingCompletion);
     window.removeEventListener('resize', onResize);
   });
-
-  const selectElement = (value) => {
-    if (!value) {
-      return;
-    }
-    
-    setSelectedEl(value);
-    let el;
-    try {
-      el = document.querySelector(value);
-    } catch {
-      return;
-    }
-    if (!el) {
-      return;
-    }
-    const rect = el.getBoundingClientRect();
-    const selectionOffset = 5;
-    setElementOffset({
-      x: rect.left - selectionOffset,
-      y: rect.top - TITLE_BAR_HEIGHT - selectionOffset,
-    });
-    let h;
-    if (rect.bottom >= window.innerHeight) {
-      h = rect.height + FRAME_SIZE + selectionOffset;
-    } else {
-      h = rect.height + MIRROR_FRAME_HEIGHT;
-    }
-    setDimension({width: rect.width + (2 * selectionOffset), height: h});
-    toggleConfig(false);
-    setupBottomTitleBar();
-  }
 
   const controls = () => { 
     return (<> 
@@ -336,7 +336,7 @@ customElement("btm-frame", {}, () => {
           <button class="btm_title__config-btn" disabled={isRecording()} onClick={() => {
             toggleConfig((c) => !c);
           }} onMouseDown={(e) => e.stopPropagation()}>
-            <svg xmlns="http://www.w3.org/2000/svg" width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-settings"><circle cx="12" cy="12" r="3" /><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z" /></svg>
+            <svg xmlns="http://www.w3.org/2000/svg" width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" class="feather feather-settings"><circle cx="12" cy="12" r="3" /><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z" /></svg>
           </button>
         </Tooltip>
         <Tooltip title="Close" style={{bottom: showBottomTitleBar() || !isRecording() ? '-41px': '31px', left: '-20px'}}>
@@ -385,7 +385,7 @@ customElement("btm-frame", {}, () => {
           <div class="btm_intro" style={{height: dimension().height - FRAME_SIZE + 'px'}}>
             <div class="btm_intro__header">
               <h3>Chrome Tab</h3>
-              <h3 classList={{selected: dpr > 1}}>
+              <h3 classList={{selected: isHighDPI}}>
                 Window
                 <div class="btm_intro__header__indicator" />
               </h3>
@@ -393,7 +393,7 @@ customElement("btm-frame", {}, () => {
                 Entire Screen
                 <div class="btm_intro__header__indicator" />
               </h3>
-              {dpr > 1 ? <div class="btm_intro__arrow">
+              {isHighDPI ? <div class="btm_intro__arrow">
                 <div class="point" />
                 <div class="curve" />
               </div> : 
@@ -403,13 +403,13 @@ customElement("btm-frame", {}, () => {
                 </div>}
             </div>
             <ul class="btm_intro__list">
-              <For each={dpr > 1 ? [1, 2, 3, 4, 5, 6]: [1]}>{() =>
+              <For each={isHighDPI ? [1, 2, 3, 4, 5, 6]: [1]}>{() =>
                 <li />
               }</For>
             </ul>
             <div class="btm_intro__message">
               <p>
-                Based on your display, it's recommended that you select the default tab <b>{dpr > 1 ? "Window": "Entire Screen"}</b> on <button class="btm_record-intro-btn btm_record-btn">
+                Based on your display, it's recommended that you select the default tab <b>{isHighDPI ? "Window": "Entire Screen"}</b> on <button class="btm_record-intro-btn btm_record-btn">
                   <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-circle"><circle cx="12" cy="12" r="10" /></svg>
                   <span class="btm_record__text">Record</span> 
                 </button> to capture the current tab.
@@ -476,12 +476,12 @@ customElement("btm-frame", {}, () => {
           <div class="btm_config__row btm_config__row--element">
             <span class="btm_config__row__label">Enter id or class or name of an element to record (and press <b style={{"font-weight":"600"}}>Enter</b>): </span>
             <span class="btm_config__row__wrapper">
-              <input type="text" style={{"width":"140px"}} value={selectedEl()} onBlur={(e) => {
+              <input type="text" style={{"width":"140px"}} value={selectedEl().value} onBlur={(e) => {
                 const {value} = e.target;
-                selectElement(value);
+                setSelectedEl({value});
               }} placeholder="Starting with # or ." onKeyUp={(e: KeyboardEvent) => {
                 if (e.key === 'Enter') {
-                  'value' in e.target && selectElement(e.target.value);
+                  'value' in e.target && setSelectedEl({value: e.target.value});
                 }
               }}/>
             </span>
