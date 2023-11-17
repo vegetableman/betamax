@@ -1,8 +1,6 @@
 const DEMO_HTML = 
   `<!doctype html>
     <html>
-    <head>
-    </head>
       <body>
         <div>
           <canvas id="anim_target" class="anim_target"></canvas>

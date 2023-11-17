@@ -139,6 +139,28 @@ const App = () => {
     setCurrentImage((prev) => (prev - 1 + ss().length) % ss().length);
   };
 
+  const displayOutput = () => {
+    if (!timeline() || !packedImage()) {
+      return;
+    }
+    const url =  URL.createObjectURL(packedImage());
+    showOutput(true);
+    const im = new Image();
+    im.onload = function()
+    {
+      try {
+        const tt = JSON.parse(timeline())
+        const blits = tt[0].blit[0];
+        canvas.width = blits[2];
+        canvas.height = blits[3];
+        animate(im, tt, canvas);
+      } catch {
+        console.error('Error parsing timeline')
+      }
+    };
+    im.src = url;
+  }
+
   const downloadZip = async () => {
     //@ts-expect-error jszip is included globally as script tag
     const zip = new JSZip();
@@ -391,6 +413,11 @@ const App = () => {
             <For each={messages()}>{(m, i) =>
               <li classList={{'text-red-600': err() && i() >= err().line, 'text-sm': true, 'leading-6': true}}> {'>'} {m()}</li>
             }</For>
+            {packedImage() && !generating() ? <li class="text-sm leading-6">
+              {" > "}
+              <a class="text-[blue] cursor-pointer outline-none hover:underline" onclick={() => {
+              displayOutput();
+            }}>Show Result</a></li>: null}
           </ul>: null}
           {isOutput() ? <Portal>
             <div onKeyDown={(e) => {
@@ -479,6 +506,7 @@ const App = () => {
                           <div class="rounded-md border border-[#ddd] bg-[#eee] p-2 text-sm">
                             To use it, simply copy the lines from <b>line 6</b> until the closing <pre class="inline">script</pre> tag in the file <pre class="inline font-semibold">demo.html</pre> in the zip and paste/modify it in your code based on your needs.
                           </div>
+                          <div class="text-xs py-2">Need an example? To view the animated screencasts in action, you can checkout this <a class="text-[blue] outline-none hover:underline" target="_blank" href="https://vigneshanand.com/proposal-for-a-navigation-panel-for-complex-or-perhaps-bloated-admin-interfaces/">blog post</a>.</div>
                         </div>
                       </details>
                     </div>
