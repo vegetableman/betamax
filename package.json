@@ -2,7 +2,7 @@
     "name": "betamax",
     "displayName": "Betamax",
     "version": "1.0.0-beta",
-    "description": "Record and generate animated screencasts.",
+    "description": "Record and generate animated demo screencasts.",
     "license": "MIT",
     "repository": {
         "type": "git",

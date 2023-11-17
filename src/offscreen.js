@@ -168,7 +168,7 @@ function startImageCapture(media, {frameRate, fileName}) {
         chrome.runtime.sendMessage({type: 'remove_document', target: 'background', tabId});
       }
     }
-    let timestamp = parseInt(performance.now());
+    let timestamp = performance.now();
     imageCapture.track && imageCapture.track.readyState === 'live' && imageCapture.grabFrame().then((bitmap) => {
       times.push(timestamp - initialTimestamp);
       bitmapPromises.push(createImageBitmap(bitmap, region.left, region.top, region.width, region.height));
