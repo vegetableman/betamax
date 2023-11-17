@@ -154,7 +154,7 @@ customElement("btm-frame", {}, () => {
         bitrate: bitrate(),
         mimeType: mimeType(),
         implementation: implementation(),
-        fileName: `betamax_${loc.domainWithoutSuffix}_${new Date().toLocaleString('sv-SE', { hour12: false}).replaceAll(/-|:/g, '').replace(' ', '_')}.zip`
+        fileName: `betamax_${loc.domainWithoutSuffix || loc.hostname}_${new Date().toLocaleString('sv-SE', { hour12: false}).replaceAll(/-|:/g, '').replace(' ', '_')}.zip`
       }
     };
     chrome.runtime.sendMessage(messageToBgScript);

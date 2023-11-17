@@ -48,7 +48,6 @@ function postCapture(fileName) {
   })
 }
 
-
 function startMediaRecorder (media, {mimeType, bitrate, frameRate, fileName}) {
   let options = {};
   if (mimeType) {
@@ -134,12 +133,13 @@ function startMediaRecorder (media, {mimeType, bitrate, frameRate, fileName}) {
 
 function startImageCapture(media, {frameRate, fileName}) {
   let times = [];
-  let bitmaps = [];
+  let bitmapPromises = [];
   let completions = 0;
 
   const imageCapture = new ImageCapture(media.getVideoTracks()[0]);
+  const initialTimestamp = performance.now();
 
-  let intervalId = setInterval(() => {
+  let intervalId = setInterval(async () => {
     if (imageCapture.track && imageCapture.track.readyState === 'ended') {
       chrome.runtime.sendMessage({type: 'capture_stopped', target: 'background', tabId});
       clearInterval(intervalId);
@@ -150,13 +150,15 @@ function startImageCapture(media, {frameRate, fileName}) {
       const context = canvas.getContext('2d');
       if (!isCancelled) {
         chrome.runtime.sendMessage({type: 'processing_capture', target: 'background', tabId});
-        bitmaps.forEach(async (bmp, i) => {
-          context.drawImage(await bmp, 0, 0);
+        let bitmaps = await Promise.all(bitmapPromises);
+        bitmaps.forEach((bmp, i) => {
+          context.drawImage(bmp, 0, 0);
           canvas.toBlob((blob) => {
             completions++;
-            zip.file(`${times[i]}.png`, blob);
+            zip.file(`${parseInt(times[i])}.png`, blob);
             if (completions === bitmaps.length) {
               bitmaps = [];
+              times = [];
               postCapture(fileName);
             }
           });
@@ -166,10 +168,10 @@ function startImageCapture(media, {frameRate, fileName}) {
         chrome.runtime.sendMessage({type: 'remove_document', target: 'background', tabId});
       }
     }
-    let now = parseInt(performance.now());
+    let timestamp = parseInt(performance.now());
     imageCapture.track && imageCapture.track.readyState === 'live' && imageCapture.grabFrame().then((bitmap) => {
-      times.push(now);
-      bitmaps.push(createImageBitmap(bitmap, region.left, region.top, region.width, region.height));
+      times.push(timestamp - initialTimestamp);
+      bitmapPromises.push(createImageBitmap(bitmap, region.left, region.top, region.width, region.height));
     // eslint-disable-next-line @typescript-eslint/no-empty-function
     }).catch(() => {});
   }, 1000 / frameRate);
