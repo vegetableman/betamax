@@ -15,7 +15,7 @@ This project is a fork of [solid-chrome-extension-template](https://github.com/f
 ## How to use Betamax
 
 
-### Recording
+## Recording
 
 
 It's recommended to select `Window` on record for high DPI/Retina displays whereas  `Screen` for others. 
@@ -30,46 +30,30 @@ There are two recording modes or implementations currently:
 
 Other settings:
 
-`Frame rate`
+`Frame rate`: &nbsp;Set the frame rate at which the images are captured.
 
-Set the frame rate at which the images are captured.
+`Window color`: &nbsp;Adjust the color of window. Useful in dark backgrounds.
 
-`Window color`
+`Window position`: &nbsp;Set the position of capture window. The position is stored for the duration of the tab.
 
-Adjust the color of window. Useful in dark backgrounds.
+`Window size`: &nbsp;Set the size of the capture window. The size is stored for the duration of the tab.
 
-`Widnow position`
+`Enter id or class or name of an element to record`: &nbsp;Enter id or class similar to value passed to `querySelector` using `#` or `.` or tag name. For instance, `.sample-container`.
 
-Set the position of window. The position is stored for the duration of the tab.
+`Video MIME`: &nbsp;Used in conjuction with the option  `MediaRecoder` to set the encoding of the video.
 
-`Window size`
+`Bitrate`:&nbsp; Used in conjuction with the option  `MediaRecoder` to set bitrate of the video being recorded.
 
-Set the size of the window. The size is stored for the duration of the tab.
-
-`Enter id or class or name of an element to record`
-
-Enter id or class similar to value passed to `querySelector` using `#` or `.` or tag name. For instance, `.sample-container`.
-
-`Video MIME`
-
-Used in conjuction with the option  `MediaRecoder` to set the encoding of the video.
-
-`Bitrate`
-
-Used in conjuction with the option  `MediaRecoder` to set bitrate of the video being recorded.
-
-`Add offset to adjust the captured result`
+`Add offset to adjust the captured result`: Ideally, this setting should not be used. For some reason, you end up seeing the borders of the capture window in your images, you could offset it. 
 
 
-### Generation
+## Generation
 
 The packed image is generated through a derivation of [anim_encoder](https://github.com/sublimehq/anim_encoder/tree/master) executed through pyodide. The end result is a zip file containing the `packed_image.png`, `timeline.json` and `demo.html`. Checkout the example directory in this repo.
 
 Let's talk about the options:
 
-`Resize factor`
-
-Allows resizing the images and the packed image. Useful when a smaller sized demo will do the job. Helps in faster generation.
+`Resize factor`: &nbsp; Allows resizing the images and the packed image. Useful when a smaller sized demo will do the job. Helps in faster generation.
 
 `Packing Optimization`
 
