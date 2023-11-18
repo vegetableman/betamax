@@ -490,14 +490,14 @@ customElement("btm-frame", {}, () => {
             <summary>Advanced</summary>
             <div class="btm_config__row">
               <span class="btm_config__row__label">Implementation: </span>
-              <span class="btm_config__row__wrapper btm_config__row--impl">
-                <span class="btm_config__row__radio">
+              <span class="btm_config__row__wrapper">
+                <span class="btm_config__row__radio-wrapper">
                   <input type="radio" id="implementation-imc" name="implementation-imc" value="imc" checked={implementation() === 'imc'} onChange={() => {
                     setImplementation('imc');
                   }}/>
                   <label for="implementation-imc">Image Capture</label>
                 </span>
-                <span class="btm_config__row__radio">
+                <span class="btm_config__row__radio-wrapper">
                   <input type="radio" id="implementation-mr" name="implementation-mr" value="mr" checked={implementation() === 'mr'} onChange={() => {
                     setImplementation('mr');
                   }}/>
