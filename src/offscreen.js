@@ -194,7 +194,8 @@ async function startRecording(data) {
         displaySurface: window.devicePixelRatio > 1.3 ? 'window': 'monitor',
         // https://bugs.chromium.org/p/chromium/issues/detail?id=1007177#c4
         // Cursor remains inconsistent in mac
-        cursor: 'always'
+        cursor: 'always',
+        frameRate: data.frameRate || 30
       },
       controller
     });
