@@ -50,7 +50,7 @@ const DEMO_HTML =
             img.src = imgUrl;
           }
           
-          const timeline = JSON.parse('__TIMELINE__PLACEHOLDER__');
+          const timeline = __TIMELINE__PLACEHOLDER__;
           setAnimation("packed_image.__EXTENSION__", timeline, 'anim_target');
         </script>
       </body>
