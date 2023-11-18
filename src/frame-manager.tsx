@@ -415,9 +415,9 @@ const App = () => {
             }</For>
             {packedImage() && !generating() ? <li class="text-sm leading-6">
               {" > "}
-              <a class="text-[blue] cursor-pointer outline-none hover:underline" onclick={() => {
-              displayOutput();
-            }}>Show Result</a></li>: null}
+              <a class="cursor-pointer text-[blue] outline-none hover:underline" onClick={() => {
+                displayOutput();
+              }}>Show Result</a></li>: null}
           </ul>: null}
           {isOutput() ? <Portal>
             <div onKeyDown={(e) => {
@@ -506,7 +506,7 @@ const App = () => {
                           <div class="rounded-md border border-[#ddd] bg-[#eee] p-2 text-sm">
                             To use it, simply copy the lines from <b>line 6</b> until the closing <pre class="inline">script</pre> tag in the file <pre class="inline font-semibold">demo.html</pre> in the zip and paste/modify it in your code based on your needs.
                           </div>
-                          <div class="text-xs py-2">Need an example? To view the animated screencasts in action, you can checkout this <a class="text-[blue] outline-none hover:underline" target="_blank" href="https://vigneshanand.com/proposal-for-a-navigation-panel-for-complex-or-perhaps-bloated-admin-interfaces/">blog post</a>.</div>
+                          <div class="py-2 text-xs">Need an example? To view the animated screencasts in action, you can checkout this <a class="text-[blue] outline-none hover:underline" target="_blank" href="https://vigneshanand.com/proposal-for-a-navigation-panel-for-complex-or-perhaps-bloated-admin-interfaces/">blog post</a>.</div>
                         </div>
                       </details>
                     </div>
