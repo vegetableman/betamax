@@ -22,36 +22,43 @@ It's recommended to select `Window` on record for high DPI/Retina displays where
 
 There are two recording modes or implementations currently:
 
-**Image Capture**: This is the default implementation logic being used. It uses the [grabFrame](https://developer.mozilla.org/en-US/docs/Web/API/ImageCapture/grabFrame) method of ImageCapture. On higher DPI displays, this mode affects the frame rate of the page being recorded causing slowdown and color contrast mismatch. However, the images captured are relatively small and consistent in size and allow for faster packing.
+`Image Capture`: This is the default implementation logic being used. It uses the [grabFrame](https://developer.mozilla.org/en-US/docs/Web/API/ImageCapture/grabFrame) method of ImageCapture. On higher DPI displays, this mode affects the frame rate of the page being recorded causing slowdown and color contrast mismatch. However, the images captured are relatively small and consistent in size and allow for faster packing.
 
 
-**MediaRecorder**: This is the implementation which uses the [MediaRecorder](https://developer.mozilla.org/en-US/docs/Web/API/MediaRecorder) interface to store the recording buffer as a blob and is faster as it doesn't affect the frame rate of the page being recorded and has accurate representation of color contrast. However, it fails at packing due to bigger capture sizes and duplicate frames in the packed image making it unusable as of now. This is the implementation I am looking forward to fix.
+`MediaRecorder`: This is the implementation which uses the [MediaRecorder](https://developer.mozilla.org/en-US/docs/Web/API/MediaRecorder) interface to store the recording buffer as a blob and is faster as it doesn't affect the frame rate of the page being recorded and has accurate representation of color contrast. However, it fails at packing due to bigger capture sizes and duplicate frames in the packed image making it unusable as of now. This is the implementation I am looking forward to fix.
 
 
 Other settings:
 
-**Frame rate**
+`Frame rate`
+
 Set the frame rate at which the images are captured.
 
-**Window color**
+`Window color`
+
 Adjust the color of window. Useful in dark backgrounds.
 
-**Widnow position**
+`Widnow position`
+
 Set the position of window. The position is stored for the duration of the tab.
 
-**Window size**
+`Window size`
+
 Set the size of the window. The size is stored for the duration of the tab.
 
-**Enter id or class or name of an element to record**
+`Enter id or class or name of an element to record`
+
 Enter id or class similar to value passed to `querySelector` using `#` or `.` or tag name. For instance, `.sample-container`.
 
-**Video MIME**
+`Video MIME`
+
 Used in conjuction with the option  `MediaRecoder` to set the encoding of the video.
 
-**Bitrate**
+`Bitrate`
+
 Used in conjuction with the option  `MediaRecoder` to set bitrate of the video being recorded.
 
-**Add offset to adjust the captured result**
+`Add offset to adjust the captured result`
 
 
 ### Generation
@@ -60,22 +67,22 @@ The packed image is generated through a derivation of [anim_encoder](https://git
 
 Let's talk about the options:
 
-**Resize factor**
+`Resize factor`
 
 Allows resizing the images and the packed image. Useful when a smaller sized demo will do the job. Helps in faster generation.
 
-**Packing Optimization**
+`Packing Optimization`
 
 There are three options: 
 
-`High`: Reduces duplicates in the packed image by matching the differing region in the frame with the existing regions in the packed image to generate a compact result. 
-`Medium`: Scales down the packed image and differing region by half for faster comparison but resulting in duplicates relatively more compared to the first option in the packed image.
-`None`: Packs all the differing regions as they appear in the packed image.
+- `High`: Reduces duplicates in the packed image by matching the differing region in the frame with the existing regions in the packed image to generate a compact result. 
+- `Medium`: Scales down the packed image and differing region by half for faster comparison but resulting in duplicates relatively more compared to the first option in the packed image.
+- `None`: Packs all the differing regions as they appear in the packed image.
 
-**Simplification Tolerance**
+`Simplification Tolerance`
 
 This value is used to determine the proximity of two differing regions and whether they should be combined into a single region. This value is highly dependent on the input images and requires playing around. Please note: a higher value then the one set doesn't necessarily guarantee reduction in the packed image size.
 
-**Allocation Size**
+`Allocation Size`
 
 The maximum number of rows available (or height) for allocation in the packed image. Update this value if you run in to allocation errors.
