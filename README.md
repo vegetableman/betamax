@@ -5,7 +5,7 @@
 </div>
 <br/>
 
-Related blog post: https://vigneshanand.com/recording-and-generating-animated-screencasts-within-the-browser/
+Related blog post: 
 
 This tool is in **Beta** and will remain so until notable performance issues are solved. If this tool is used for production or any critical use case, please do so at your own risk.
 
