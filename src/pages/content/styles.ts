@@ -427,6 +427,7 @@ export const style = `
     top: ${TITLE_BAR_HEIGHT}px;
     width: 100%;
     height: 355px;
+    overflow: hidden;
     background: var(--black-a-8-20);
     color: var(--white);
   }

@@ -24,7 +24,7 @@ const manifest = defineManifest(async () => ({
   },
   content_scripts: [
     {
-      matches: ["http://*/*", "https://*/*", "<all_urls>"],
+      matches: ["<all_urls>"],
       css: ["src/pages/content/content.css"],
       js: ["src/pages/content/index.tsx"],
     },
@@ -48,10 +48,6 @@ const manifest = defineManifest(async () => ({
     "storage",
     "offscreen",
     "commands"
-  ],
-  host_permissions: [
-    "http://*/*",
-    "https://*/*"
   ],
   commands: {
     "toggle_capture": {
