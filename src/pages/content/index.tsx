@@ -203,6 +203,7 @@ customElement("btm-frame", {}, () => {
 
   function cancelCapture() {
     reset();
+    chrome.runtime.sendMessage({type: 'cancel_capture', target: 'background'});
   }
 
   function stopCapture() {
@@ -319,7 +320,6 @@ customElement("btm-frame", {}, () => {
           <Tooltip title="Cancel (Alt + Shift + C)" style={{bottom: showBottomTitleBar() ? '-37px': '34px', left: '3px'}}>
             <button class="btm_title__cancel-btn"  onClick={() => {
               cancelCapture();
-              chrome.runtime.sendMessage({type: 'cancel_capture', target: 'background'});
             }} onMouseDown={(e) => e.stopPropagation()}>
               <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" class="feather feather-x"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
             </button>

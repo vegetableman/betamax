@@ -44,12 +44,10 @@ const manifest = defineManifest(async () => ({
     ]
   },
   permissions: [
-    "activeTab",
-    "webRequest",
     "tabs",
     "storage",
-    "scripting",
-    "offscreen"
+    "offscreen",
+    "commands"
   ],
   host_permissions: [
     "http://*/*",
