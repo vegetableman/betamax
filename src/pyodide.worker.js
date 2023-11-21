@@ -350,7 +350,7 @@ onmessage = async function (e) {
     }
     // eslint-disable-next-line no-undef
     await pyodide
-      .loadPackage(e.data.payload.packages)
+      .loadPackage(e.data.payload.packages);
     self.postMessage({ done: true });
     break
   }

@@ -17,43 +17,35 @@ const isDev = process.env.__DEV__ === "true";
 export default defineConfig({
   plugins: [solidPlugin(), copyPlugin({
     targets: [
-    {
-      src: root + '/frame.html',
-      dest: outDir + '/src'
-    },
-    {
-      src: root + '/frame-runtime.js',
-      dest: outDir + '/src'
-    },
-    {
-      src: pagesDir + '/content/content.css',
-      dest: outDir + '/src/pages/content'
-    },
-    {
-      src: root + '/demo.js',
-      dest: outDir + '/src'
-    },
-    {
-      src: root + '/offscreen.html',
-      dest: outDir + '/src'
-    },
-    {
-      src: root + '/offscreen.js',
-      dest: outDir + '/src'
-    },
-    {
-      src: root + '/vendor/jszip.min.js',
-      dest: outDir + '/src/vendor'
-    },
-    {
-      src: root + '/vendor/upng.js',
-      dest: outDir + '/src/vendor'
-    },
-    {
-      src: root + '/vendor/pako.min.js',
-      dest: outDir + '/src/vendor'
-    },
-  ],  hook: 'writeBundle'
+      {
+        src: root + '/frame.html',
+        dest: outDir + '/src'
+      },
+      {
+        src: root + '/frame-runtime.js',
+        dest: outDir + '/src'
+      },
+      {
+        src: pagesDir + '/content/content.css',
+        dest: outDir + '/src/pages/content'
+      },
+      {
+        src: root + '/demo.js',
+        dest: outDir + '/src'
+      },
+      {
+        src: root + '/offscreen.html',
+        dest: outDir + '/src'
+      },
+      {
+        src: root + '/offscreen.js',
+        dest: outDir + '/src'
+      },
+      {
+        src: root + '/vendor/jszip.min.js',
+        dest: outDir + '/src/vendor'
+      }
+    ],  hook: 'writeBundle'
   }), WindiCSS(),  crx({ manifest })],
   resolve: {
     alias: {

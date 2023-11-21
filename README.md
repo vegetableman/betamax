@@ -70,3 +70,15 @@ This value is used to determine the proximity of two differing regions and wheth
 `Allocation Size`
 
 The maximum number of rows available (or height) for allocation in the packed image. Update this value if you run in to allocation errors.
+
+## Development
+
+The environment could be set up using [devenv](https://devenv.sh/) by running `devenv shell`
+
+To start the development, following commands are run:
+
+`npm install`
+
+`npm run dev:all`
+
+`Pyodide` and it's packages are loaded through a web worker locally to avoid CSP issues in the extension. So, it's build locally following the steps [here](https://pyodide.org/en/stable/development/building-from-sources.html). I might include it as a submodule as part of the repo. 

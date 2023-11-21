@@ -24,7 +24,6 @@
         "@webcomponents/custom-elements": "^1.6.0",
         "solid-element": "^1.7.1",
         "solid-js": "^1.6.2",
-        "solid-transition-group": "^0.2.2",
         "tldts": "^6.0.15"
     },
     "devDependencies": {

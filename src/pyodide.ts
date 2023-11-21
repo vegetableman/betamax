@@ -60,7 +60,6 @@ class Pyodide {
           this._dispatch({msg: 'load', payload: {
             pyodide: chrome.runtime.getURL('src/pyodide/pyodide.js'),
             packages: [
-              chrome.runtime.getURL('src/pyodide/packages/micropip-0.3.0-py3-none-any.whl'),
               chrome.runtime.getURL('src/pyodide/packages/numpy-1.24.3-cp311-cp311-emscripten_3_1_39_wasm32.whl'),
               chrome.runtime.getURL('src/pyodide/packages/packaging-23.0-py3-none-any.whl'),
               chrome.runtime.getURL('src/pyodide/packages/PIL-9.1.1-cp311-cp311-emscripten_3_1_39_wasm32.whl'),
