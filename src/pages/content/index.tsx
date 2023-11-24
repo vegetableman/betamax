@@ -8,9 +8,21 @@ import { Resizer, Tooltip, tooltipStyle } from './components';
 import { delay } from './utils';
 import { __BTM_COLOR_VAR, TITLE_BAR_HEIGHT, MIRROR_FRAME_HEIGHT, style } from './styles';
 
-let __BTM_COLOR_VALUE;
-let __BTM_DIMENSION_OBJ;
-let __BTM_POSITION_OBJ;
+interface IDimension {
+  width: number;
+  height: number;
+}
+
+interface IPosition {
+  x: number;
+  y: number;
+}
+
+type Direction = 'sw' | 'nw' | 'se' | 'ne' | 'e';
+
+let __BTM_COLOR_VALUE: string;
+let __BTM_DIMENSION_OBJ: IDimension;
+let __BTM_POSITION_OBJ: IPosition;
 
 const DEFAULT_FRAME_RATE = 30;
 const MIN_WIDTH = 200;
@@ -22,10 +34,10 @@ const __BTM_WINDOW_POSITION_KEY = '__btm_window_position';
 const __BTM_WINDOW_DIMENSION_KEY = '__btm_window_dimension';
 const __BTM_INTRO_KEY = '__btm_show_intro';
 
-let startCountdown;
+let startCountdown: () => {};
 
 customElement("btm-frame", {}, () => {
-  let frame;
+  let frame: HTMLDivElement | undefined;
   const dpr = window.devicePixelRatio;
   const isHighDPI = dpr > 1.3;
   const [mousePosition, setMousePosition] = createSignal({ x: 0, y: 0 });
@@ -33,7 +45,7 @@ customElement("btm-frame", {}, () => {
     x: __BTM_POSITION_OBJ?.x ?? window.innerWidth/2 - MIN_WIDTH, 
     y: __BTM_POSITION_OBJ?.y ?? window.innerHeight/2 - MIN_WIDTH 
   });
-  const [frameRate, setFrameRate] = createSignal(DEFAULT_FRAME_RATE);
+  const [frameRate, setFrameRate] = createSignal<number>(DEFAULT_FRAME_RATE);
   const [isMouseDown, setMouseDown] = createSignal(false);
   const [isRecording, setIsRecording] = createSignal(false);
   const [isStarting, setIsStarting] = createSignal(false);
@@ -56,13 +68,16 @@ customElement("btm-frame", {}, () => {
   const [mimeType, setMimeType] = createSignal('video/webm;codecs=vp9');
   const [implementation, setImplementation] = createSignal('imc');
 
-  const handleMouseDown = (event) => {
+  const handleMouseDown = (event: MouseEvent) => {
     if (isRecording() || isResizing()) {
       return;
     }
     const { clientX, clientY } = event;
     setMouseDown(true);
     setMousePosition({x: clientX, y: clientY});
+    if (!(frame instanceof HTMLDivElement)) {
+      throw new Error("Ref frame not found");
+    }
     const rect = frame.getBoundingClientRect();
     setElementOffset({
       x: rect.left,
@@ -75,6 +90,9 @@ customElement("btm-frame", {}, () => {
   };
 
   const setupBottomTitleBar = () => {
+    if (!(frame instanceof HTMLDivElement)) {
+      throw new Error("Ref frame not found");
+    }
     if (frame.getBoundingClientRect().top < -25) {
       toggleBottomTitleBar(true);
     } else if(showBottomTitleBar()) {
@@ -82,7 +100,7 @@ customElement("btm-frame", {}, () => {
     }
   }
 
-  const handleMouseMove = (event) => {
+  const handleMouseMove = (event: MouseEvent) => {
     if (!isMouseDown() || isRecording() || isResizing()) return;
 
     const { clientX, clientY } = event;
@@ -109,7 +127,7 @@ customElement("btm-frame", {}, () => {
     document.removeEventListener('mouseup', handleMouseUp);
   });
   
-  function formatTime(time) {
+  function formatTime(time: number) {
     return time < 10 ? `0${time}` : time.toString();
   }
 
@@ -131,7 +149,7 @@ customElement("btm-frame", {}, () => {
     }
   }
 
-  function calculateRegion(displaySurface) {
+  function calculateRegion(displaySurface: string) {
     const dpr = window.devicePixelRatio;
     const offsetTop = isHighDPI && displaySurface === 'window' ? (TITLE_BAR_HEIGHT * dpr) + ((window.outerHeight - window.innerHeight) * dpr) 
       : isHighDPI ? (screen.height - window.innerHeight) + TITLE_BAR_HEIGHT : (screen.height - window.innerHeight);
@@ -160,7 +178,7 @@ customElement("btm-frame", {}, () => {
     chrome.runtime.sendMessage(messageToBgScript);
   }
 
-  let timerId;
+  let timerId: NodeJS.Timer;
   startCountdown = async (payload) => {
     setIsStarting(true);
     setTime('00:00');
@@ -229,17 +247,18 @@ customElement("btm-frame", {}, () => {
   });
 
   createEffect(() => {
-    if (!selectedEl()) {
+    let value;
+    if (!selectedEl() || !(value = selectedEl().value)) {
       return;
     }
     
-    let el;
+    let el: unknown;
     try {
-      el = document.querySelector(selectedEl().value);
+      el = document.querySelector(value);
     } catch {
       return;
     }
-    if (!el) {
+    if (el === null || !(el instanceof HTMLElement)) {
       return;
     }
     const rect = el.getBoundingClientRect();
@@ -299,10 +318,10 @@ customElement("btm-frame", {}, () => {
     return (<> 
       {!isRecording() ?
         <Tooltip title="Record (Alt + Shift + R)" style={{bottom:'-33px', left: '3px'}}>
-          <button class="btm_record-btn" onClick={(e) => {
+          <button class="btm_record-btn" onClick={(e: Event) => {
             e.preventDefault();
             initCapture();
-          }} onMouseDown={(e) => e.stopPropagation()}>
+          }} onMouseDown={(e: Event) => e.stopPropagation()}>
             <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-circle"><circle cx="12" cy="12" r="10" /></svg>
             <span class="btm_record__text">Record</span>
           </button>
@@ -311,7 +330,7 @@ customElement("btm-frame", {}, () => {
       {isRecording() ? <Tooltip title="Stop (Alt + Shift + R)" style={{bottom: showBottomTitleBar() ? '-33px': '38px', left: '3px'}}>
         <button class="btm_stop-btn" onClick={() => {
           document.dispatchEvent(stopEvent);
-        }} onMouseDown={(e) => e.stopPropagation()}>
+        }} onMouseDown={(e: Event) => e.stopPropagation()}>
           <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-square"><rect x="3" y="3" width="18" height="18" rx="2" ry="2" /></svg>
           <span class="btm_record__text">Stop</span>
         </button></Tooltip>: null}
@@ -320,7 +339,7 @@ customElement("btm-frame", {}, () => {
           <Tooltip title="Cancel (Alt + Shift + C)" style={{bottom: showBottomTitleBar() ? '-37px': '34px', left: '3px'}}>
             <button class="btm_title__cancel-btn"  onClick={() => {
               cancelCapture();
-            }} onMouseDown={(e) => e.stopPropagation()}>
+            }} onMouseDown={(e: Event) => e.stopPropagation()}>
               <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" class="feather feather-x"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
             </button>
           </Tooltip>
@@ -340,9 +359,9 @@ customElement("btm-frame", {}, () => {
           </button>
         </Tooltip>
         <Tooltip title="Close" style={{bottom: showBottomTitleBar() || !isRecording() ? '-41px': '31px', left: '-20px'}}>
-          <button class="btm_title__close-btn" disabled={isRecording()} onClick={() => {
+          <button class="btm_title__close-btn" disabled={isRecording()} onClick={(e) => {
             document.querySelector('btm-frame').remove();
-          }} onMouseDown={(e) => e.stopPropagation()}>
+          }} onMouseDown={(e: Event) => e.stopPropagation()}>
             <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" class="feather feather-x"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
           </button>
         </Tooltip>
@@ -350,10 +369,12 @@ customElement("btm-frame", {}, () => {
     </>);
   };
 
-  function updateOffset(dir) {
+  function updateOffset(dir: string) {
     // eslint-disable-next-line solid/reactivity
-    return (e) => {
-      offset()[dir] = parseInt(e.target.value);
+    return (e: Event) => {
+      if (e.target instanceof HTMLInputElement) {
+        offset()[dir] = parseInt(e.target.value);
+      }
       setOffset(offset());
     }
   }
@@ -480,7 +501,7 @@ customElement("btm-frame", {}, () => {
                 const {value} = e.target;
                 setSelectedEl({value});
               }} placeholder="Starting with # or ." onKeyUp={(e: KeyboardEvent) => {
-                if (e.key === 'Enter') {
+                if (e.target && e.key === 'Enter') {
                   'value' in e.target && setSelectedEl({value: e.target.value});
                 }
               }}/>
@@ -558,7 +579,7 @@ customElement("btm-frame", {}, () => {
         <div class="btm_mirror" data-disabled={isRecording()}>
           <Resizer disabled={isRecording()} frameRef={frame} onResize={
             // eslint-disable-next-line solid/reactivity
-            (dir, width, deltaX, deltaY, startLeft) => {
+            (dir: Direction, width: number, deltaX: number, deltaY: number, startLeft: number) => {
               setIsResizing(true);
               if (dir === 'e') {
                 const w = width + deltaX;
