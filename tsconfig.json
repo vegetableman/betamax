@@ -1,6 +1,11 @@
 {
   "compilerOptions": {
+    "strict": true,
     "noEmit": true,
+    "noImplicitAny": true,
+    "noUncheckedIndexedAccess": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
     "baseUrl": ".",
     "allowJs": false,
     "target": "esnext",

@@ -1,18 +1,28 @@
 chrome.commands.onCommand.addListener(async (command) => {
   if (command === 'toggle_capture' || command === 'cancel_capture') {
     chrome.tabs.query({ active: true, currentWindow: true }, function(tabs) {
+      if (!tabs[0] || typeof tabs[0].id !== 'number') {
+        throw new Error("Tab id not found");
+      }
       chrome.tabs.sendMessage(tabs[0].id, { type: command, target: 'tab' });
     });
   }
 });
 
 chrome.action.onClicked.addListener(async function(tab) {
+  if (typeof tab.id !== 'number') {
+    throw new Error("Tab id not found");
+  }
   chrome.tabs.sendMessage(tab.id, { type: 'view_frame', target: 'tab' });
 });
 
 chrome.runtime.onMessage.addListener(async (message, sender) => {
   if (message.target !== 'background') {
     return;
+  }
+
+  if (!sender.tab) {
+    throw new Error("Tab id not found");
   }
 
   if (message.type === 'start_capture') {
@@ -36,8 +46,7 @@ chrome.runtime.onMessage.addListener(async (message, sender) => {
       } catch(error) {
         console.error('Error in createDocument', error);
       }
-    } 
-  
+    }
     chrome.runtime.sendMessage({
       type: message.type,
       target: 'offscreen',
@@ -57,6 +66,9 @@ chrome.runtime.onMessage.addListener(async (message, sender) => {
     const { fileName } = message.payload;
     chrome.tabs.create({url: 'src/frame.html'}, (tab) => {
       setTimeout(() => {
+        if (typeof tab.id !== 'number') {
+          throw new Error("Tab id not found"); 
+        }
         chrome.tabs.sendMessage(tab.id, { fileName });
       }, 1000);
     });
