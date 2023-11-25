@@ -46,8 +46,7 @@ const manifest = defineManifest(async () => ({
   permissions: [
     "tabs",
     "storage",
-    "offscreen",
-    "commands"
+    "offscreen"
   ],
   commands: {
     "toggle_capture": {
