@@ -1,3 +1,5 @@
+type Context = {contextType: 'OFFSCREEN_DOCUMENT'};
+
 chrome.commands.onCommand.addListener(async (command) => {
   if (command === 'toggle_capture' || command === 'cancel_capture') {
     chrome.tabs.query({ active: true, currentWindow: true }, function(tabs) {
@@ -21,17 +23,13 @@ chrome.runtime.onMessage.addListener(async (message, sender) => {
     return;
   }
 
-  if (!sender.tab) {
-    throw new Error("Tab id not found");
-  }
-
   if (message.type === 'start_capture') {
     const existingContexts = await chrome.runtime
     // @ts-expect-error new api
       .getContexts({});
     
     const offscreenDocument = existingContexts.find(
-      (c) => c.contextType === 'OFFSCREEN_DOCUMENT'
+      (c: Context) => c.contextType === 'OFFSCREEN_DOCUMENT'
     );
   
     if (!offscreenDocument) {
@@ -47,7 +45,7 @@ chrome.runtime.onMessage.addListener(async (message, sender) => {
         console.error('Error in createDocument', error);
       }
     }
-    chrome.runtime.sendMessage({
+    sender.tab && chrome.runtime.sendMessage({
       type: message.type,
       target: 'offscreen',
       tabId: sender.tab.id,
@@ -75,7 +73,7 @@ chrome.runtime.onMessage.addListener(async (message, sender) => {
     chrome.tabs.sendMessage(message.tabId, { type: message.type, target: 'tab' });
   } else if (message.type === 'stop_capture' || message.type === 'cancel_capture' ||
     message.type === 'continue_capture' || message.type === 'set_region') {
-    chrome.runtime.sendMessage({
+    sender.tab && chrome.runtime.sendMessage({
       type: message.type,
       target: 'offscreen',
       tabId: sender.tab.id,

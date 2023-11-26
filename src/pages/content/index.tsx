@@ -18,6 +18,17 @@ interface IPosition {
   y: number;
 }
 
+interface IRect {
+  left: number;
+  top: number;
+  width: number;
+  height: number;
+}
+
+interface IPayload {
+  displaySurface: string
+}
+
 type Direction = 'sw' | 'nw' | 'se' | 'ne' | 'e';
 
 let __BTM_COLOR_VALUE: string;
@@ -34,7 +45,7 @@ const __BTM_WINDOW_POSITION_KEY = '__btm_window_position';
 const __BTM_WINDOW_DIMENSION_KEY = '__btm_window_dimension';
 const __BTM_INTRO_KEY = '__btm_show_intro';
 
-let startCountdown: () => {};
+let startCountdown: (payload: IPayload) => Promise<void>;
 
 customElement("btm-frame", {}, () => {
   let frame: HTMLDivElement | undefined;
@@ -54,17 +65,18 @@ customElement("btm-frame", {}, () => {
   const [isResizing, setIsResizing] = createSignal(false);
   const [isProcessing, setIsProcessing] = createSignal(false);
   const [showBottomTitleBar, toggleBottomTitleBar] = createSignal(false);
-  const [selectedEl, setSelectedEl] = createSignal({value: null});
+  // Setting selectedEl as object to allow selection on enter of same value. 
+  const [selectedEl, setSelectedEl] = createSignal<{el: string}>({el: ''});
   const [dimension, setDimension] = createSignal({
     width: __BTM_DIMENSION_OBJ?.width ?? 400, 
     height:__BTM_DIMENSION_OBJ?.height ?? (450 + FRAME_SIZE)
   });
   const [time, setTime] = createSignal('00:00');
-  const [countDown, setCountDown] = createSignal(null);
+  const [countDown, setCountDown] = createSignal<number |  ((value: (prev: number) => number) => number) | null>(null);
   const [color, setColor] = createSignal(__BTM_COLOR_VALUE);
   const [offset, setOffset] = createSignal({left: 0, top: 0, width: 0, height: 0});
   const [showIntro, toggleIntro] = createSignal(false);
-  const [bitrate, setBitrate] = createSignal(null);
+  const [bitrate, setBitrate] = createSignal<number | null>(null);
   const [mimeType, setMimeType] = createSignal('video/webm;codecs=vp9');
   const [implementation, setImplementation] = createSignal('imc');
 
@@ -179,7 +191,8 @@ customElement("btm-frame", {}, () => {
   }
 
   let timerId: NodeJS.Timer;
-  startCountdown = async (payload) => {
+  startCountdown = async (payload: IPayload) => {
+    console.log('start countdown')
     setIsStarting(true);
     setTime('00:00');
     await delay(1000);
@@ -198,7 +211,7 @@ customElement("btm-frame", {}, () => {
           resolve(true);
         }
         setCountDown((c) => {
-          return Math.max(c - 1, 1);
+          return typeof c === 'number' ? Math.max(c - 1, 1): c;
         });
       }, 1000);
     });
@@ -248,13 +261,13 @@ customElement("btm-frame", {}, () => {
 
   createEffect(() => {
     let value;
-    if (!selectedEl() || !(value = selectedEl().value)) {
+    if (!selectedEl() || !(value = selectedEl())) {
       return;
     }
     
     let el: unknown;
     try {
-      el = document.querySelector(value);
+      el = document.querySelector(value.el);
     } catch {
       return;
     }
@@ -359,8 +372,8 @@ customElement("btm-frame", {}, () => {
           </button>
         </Tooltip>
         <Tooltip title="Close" style={{bottom: showBottomTitleBar() || !isRecording() ? '-41px': '31px', left: '-20px'}}>
-          <button class="btm_title__close-btn" disabled={isRecording()} onClick={(e) => {
-            document.querySelector('btm-frame').remove();
+          <button class="btm_title__close-btn" disabled={isRecording()} onClick={() => {
+            document.querySelector('btm-frame')?.remove();
           }} onMouseDown={(e: Event) => e.stopPropagation()}>
             <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" class="feather feather-x"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
           </button>
@@ -369,11 +382,11 @@ customElement("btm-frame", {}, () => {
     </>);
   };
 
-  function updateOffset(dir: string) {
+  function updateOffset(pos: keyof IRect) {
     // eslint-disable-next-line solid/reactivity
     return (e: Event) => {
       if (e.target instanceof HTMLInputElement) {
-        offset()[dir] = parseInt(e.target.value);
+        offset()[pos] = parseInt(e.target.value);
       }
       setOffset(offset());
     }
@@ -400,7 +413,7 @@ customElement("btm-frame", {}, () => {
           {controls()}
         </div>
         {isStarting() || isProcessing() ? <div style={{height: dimension().height + (showBottomTitleBar() ? 0 : -FRAME_SIZE) + 'px'}}  classList={{btm_overlay: true, btm_processing: isProcessing() || !countDown()}}>
-          <span>{isProcessing() ? 'Processing Captures': countDown() ? countDown(): 'Starting Countdown'}</span>
+          <span>{isProcessing() ? 'Processing Captures': countDown() ? `${countDown()}`: 'Starting Countdown'}</span>
         </div>: null}
         {showIntro() ? 
           <div class="btm_intro" style={{height: dimension().height - FRAME_SIZE + 'px'}}>
@@ -497,12 +510,12 @@ customElement("btm-frame", {}, () => {
           <div class="btm_config__row btm_config__row--element">
             <span class="btm_config__row__label">Enter id or class or name of an element to record (and press <b style={{"font-weight":"600"}}>Enter</b>): </span>
             <span class="btm_config__row__wrapper">
-              <input type="text" style={{"width":"140px"}} value={selectedEl().value} onBlur={(e) => {
+              <input type="text" style={{"width":"140px"}} value={selectedEl().el} onBlur={(e) => {
                 const {value} = e.target;
-                setSelectedEl({value});
+                setSelectedEl({el: value});
               }} placeholder="Starting with # or ." onKeyUp={(e: KeyboardEvent) => {
-                if (e.target && e.key === 'Enter') {
-                  'value' in e.target && setSelectedEl({value: e.target.value});
+                if (e.target && e.key === 'Enter' && e.target instanceof HTMLInputElement) {
+                  'value' in e.target && setSelectedEl({el: e.target.value});
                 }
               }}/>
             </span>
@@ -538,7 +551,7 @@ customElement("btm-frame", {}, () => {
             <div class="btm_config__row">
               <span class="btm_config__row__label">Bitrate: </span>
               <span class="btm_config__row__wrapper">
-                <input class="btm_config__interval-input" type="text" style={{"width":"50px"}} value={bitrate()} onChange={(e) => {
+                <input class="btm_config__interval-input" type="text" style={{"width":"50px"}} value={`${bitrate()}`} onChange={(e) => {
                   const {value} = e.target;
                   const v = parseInt(value);
                   !Number.isNaN(v) && v > 0 && setBitrate(v);
@@ -587,24 +600,24 @@ customElement("btm-frame", {}, () => {
                   return;
                 } 
                 setDimension({width: w, height: dimension().height});
-              } else if (dir === 'w' || dir === 'sw') {
+              } else if (['w', 'sw'].includes(dir)) {
                 const w = width - deltaX;
                 if (w < MIN_WIDTH) {
                   return;
                 }
                 setElementOffset({x: startLeft + deltaX, y: elementOffset().y});
                 setDimension({width: w, height: dimension().height});
-                if (dir === 'sw') {
+                if (['sw', 'se'].includes(dir)) {
                   const h = dimension().height + deltaY;
                   setDimension({width: dir === 'se' ? width + deltaX: dimension().width, height: h});
                 }
-              } else if (dir === 's' || dir === 'se') {
+              } else if (['s', 'se'].includes(dir)) {
                 const h = dimension().height + deltaY;
                 if (h < MIN_HEIGHT || ( dir === 'se' && width + deltaX < MIN_WIDTH)) {
                   return;
                 }
                 setDimension({width: dir === 'se' ? width + deltaX: dimension().width, height: h});
-              } else if (dir === 'n' || dir === 'ne' ||  dir === 'nw') {
+              } else if (['nw', 'ne', 'n'].includes(dir)) {
                 const h = dimension().height - deltaY;
                 if (h < MIN_HEIGHT) return;
                 if (dir === 'ne' || dir === 'nw') {

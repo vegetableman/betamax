@@ -33,6 +33,11 @@
   },
   "ignorePatterns": [
     "watch.js",
-    "dist/**"
+    "dist/**",
+    "pyodide/",
+    "node_modules/",
+    "vendor/",
+    "sandbox/",
+    ".devenv/**"
   ]
 }
