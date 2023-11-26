@@ -4,18 +4,18 @@ export default function colorLog(message: string, type?: ColorType) {
   let color: string = type || COLORS.FgBlack;
 
   switch (type) {
-    case "success":
-      color = COLORS.FgGreen;
-      break;
-    case "info":
-      color = COLORS.FgBlue;
-      break;
-    case "error":
-      color = COLORS.FgRed;
-      break;
-    case "warning":
-      color = COLORS.FgYellow;
-      break;
+  case "success":
+    color = COLORS.FgGreen;
+    break;
+  case "info":
+    color = COLORS.FgBlue;
+    break;
+  case "error":
+    color = COLORS.FgRed;
+    break;
+  case "warning":
+    color = COLORS.FgYellow;
+    break;
   }
 
   console.log(color, message);
