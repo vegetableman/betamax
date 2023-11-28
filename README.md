@@ -14,7 +14,7 @@ This project is a fork of [solid-chrome-extension-template](https://github.com/f
 
 ## How to use Betamax
 
-[betamax.webm](https://github.com/vegetableman/betamax/assets/1330851/c3f4e657-ef41-4830-bbcc-1c171a18baff)
+[betamax.webm](https://github.com/vegetableman/betamax/assets/1330851/a8eb1839-0397-4ac2-a1f9-b8fce8491ec4)
 
 
 ## Recording
