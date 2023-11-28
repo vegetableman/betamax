@@ -1,8 +1,8 @@
 import 'virtual:windi.css';
-import { For, createEffect, createSignal, onMount } from "solid-js";
+import { For, Show, createEffect, createSignal, onMount } from "solid-js";
 import  {Portal, render} from "solid-js/web";
 import pyodide from "./pyodide";
-import DEMO_HTML from './demo.js';
+import DEMO_HTML from './demo';
 import { copyToClipboard } from './pages/content/utils';
 
 const { hostname } = new URL(window.location.href);
@@ -16,30 +16,58 @@ window.chrome = {
   }
 };
 
+type Blit = {
+  delay: number,
+  blit: [number, number, number, number, number, number][]
+};
+
+type Timeline  = Array<Blit>;
+
+export interface IPayload {
+  screenshots: string[], 
+  times: number[], 
+  format: string, 
+  resizeFactor: number | null,
+  packingMode: number | null, 
+  tolerance: number, 
+  allocation: number
+}
+
+export interface IResult {
+  timeline: Timeline,
+  message: string,
+  image: Blob | MediaSource;
+}
 
 let IS_PYODIDE_LOADED = false;
 const delay_scale = 0.9;
-let timer = null;
+let timer:number;
 
-function animate(img, timeline, canvas)
+function animate(img: HTMLImageElement, timeline: Timeline, canvas: HTMLCanvasElement)
 {
   let i = 0;
   const f = function()
   {
     const frame = i++ % timeline.length;
-    const delay = timeline[frame].delay * delay_scale;
-    const blits = timeline[frame].blit;
+    const tf = timeline[frame];
+    if (!tf) {
+      return;
+    }
+    const delay = tf.delay * delay_scale;
+    const blits = tf.blit;
     const ctx = canvas.getContext('2d');
     for (let j = 0; j < blits.length; ++j)
     {
       const blit = blits[j];
-      const sx = blit[0];
-      const sy = blit[1];
-      const w = blit[2];
-      const h = blit[3];
-      const dx = blit[4];
-      const dy = blit[5];
-      ctx.drawImage(img, sx, sy, w, h, dx, dy, w, h);
+      if (blit) {
+        const sx = blit[0];
+        const sy = blit[1];
+        const w = blit[2];
+        const h = blit[3];
+        const dx = blit[4];
+        const dy = blit[5];
+        ctx && ctx.drawImage(img, sx, sy, w, h, dx, dy, w, h);
+      }
     }
     timer = window.setTimeout(f, delay);
   }
@@ -49,31 +77,31 @@ function animate(img, timeline, canvas)
 }
 
 const App = () => {
-  let fileInput;
-  let logScroller;
-  let canvas;
-  let timelineInput;
-  let gallery;
+  let fileInput: HTMLInputElement | undefined;
+  let logScroller: HTMLUListElement | undefined;
+  let canvas: HTMLCanvasElement | undefined;
+  let timelineInput: HTMLInputElement | undefined;
+  let gallery: HTMLDivElement | undefined;
   let details;
-  let aboutDialog;
-  const [ss, setScreenshots] = createSignal([]);
-  const [times, setTimes] = createSignal([]);
+  let aboutDialog: HTMLDialogElement | undefined;
+  const [ss, setScreenshots] = createSignal<Array<{src: string, id: string}>>([]);
+  const [times, setTimes] = createSignal<Array<number>>([]);
   const [format, ] = createSignal('png');
-  const [fileName, setFileName] = createSignal(null);
+  const [fileName, setFileName] = createSignal<string>('');
   const [exampleFileName, setExampleFileName] = createSignal(null);
   const [currentImage, setCurrentImage] = createSignal(0);
-  const [messages, setMessages] = createSignal([]);
+  const [messages, setMessages] = createSignal<Array<string>>([]);
   const [generating, setIsGenerating] = createSignal(false);
   const [transitionEnabled, toggleTransition] = createSignal(true);
   const [isOutput, showOutput] = createSignal(false);
   const [isExpanded, toggleExpansion] = createSignal(false);
-  const [packedImage, setPackedImage] = createSignal(null);
-  const [timeline, setTimeline] = createSignal(null);
-  const [showClipboardMsg, toggleClipboardMsg] = createSignal(null);
+  const [packedImage, setPackedImage] = createSignal<Blob | MediaSource | null>(null);
+  const [timeline, setTimeline] = createSignal<string>('');
+  const [showClipboardMsg, toggleClipboardMsg] = createSignal<boolean>(false);
   const [isDetailsOpen, setDetailsOpen] = createSignal(true);
-  const [resizeFactor, setResizeFactor] = createSignal(null);
-  const [packingMode, setPackingMode] = createSignal(null);
-  const [err, toggleError] = createSignal(null);
+  const [resizeFactor, setResizeFactor] = createSignal<number | null>(null);
+  const [packingMode, setPackingMode] = createSignal<number | null>(null);
+  const [err, toggleError] = createSignal<boolean | {line: number}>(false);
   const [version, setVersion] = createSignal(null);
   const [tolerance, setTolerance] = createSignal(512);
   const [allocation, setAllocation] = createSignal(20000);
@@ -91,27 +119,38 @@ const App = () => {
     setMessages([...messages(), "Pyodide is loaded."]);
     setMessages([...messages(), "Sending images to the worker..."]);
     pyodide.processImages({
-      screenshots: ss().map((s) => s.src), times: times(), format: format(), resizeFactor: resizeFactor(), packingMode: packingMode(), tolerance: tolerance(), allocation: allocation()}, async (done, payload) => {
+      screenshots: ss().map((s) => s.src), 
+      times: times(), 
+      format: format(), 
+      resizeFactor: resizeFactor(), 
+      packingMode: packingMode(), 
+      tolerance: tolerance(),
+      allocation: allocation()
+    }, async (done: boolean, payload: IResult) => {
       if (done) {
         setIsGenerating(false);
         const {image, timeline: tt} = payload;
         const url =  URL.createObjectURL(image);
-        setPackedImage(image);
+        setPackedImage(() => image);
         setTimeline(JSON.stringify(tt));
         terminatePyodide();
         showOutput(true);
         const im = new Image();
         im.onload = function()
         {
-          const blits = tt[0].blit[0];
-          canvas.width = blits[2];
-          canvas.height = blits[3];
-          animate(im, tt, canvas);
+          const blits = tt[0]?.blit[0];
+          if (canvas && blits) {
+            canvas.width = blits[2];
+            canvas.height = blits[3];
+            animate(im, tt, canvas);
+          }
         };
         im.src = url;
       } else {
         const {message} = payload;
-        if (message.indexOf('/') > -1 && messages()[messages().length - 1].indexOf('/') > -1) {
+        const l = messages().length;
+        const last = messages()[l - 1];
+        if (message.indexOf('/') > -1 && l && last && last.indexOf('/') > -1) {
           messages()[messages().length - 1] = message;
           setMessages([...messages()]);
         } else if (message.includes("Error generating the result:")) {
@@ -125,7 +164,9 @@ const App = () => {
           setMessages([...messages(), message]);
         }
         requestAnimationFrame(() => {
-          logScroller.scrollTop = logScroller.scrollHeight;
+          if (logScroller) {
+            logScroller.scrollTop = logScroller.scrollHeight;
+          }
         });
       }
     });
@@ -140,10 +181,11 @@ const App = () => {
   };
 
   const displayOutput = () => {
-    if (!timeline() || !packedImage()) {
+    const pi = packedImage();
+    if (!timeline() || !pi) {
       return;
     }
-    const url =  URL.createObjectURL(packedImage());
+    const url =  URL.createObjectURL(pi);
     showOutput(true);
     const im = new Image();
     im.onload = function()
@@ -151,9 +193,11 @@ const App = () => {
       try {
         const tt = JSON.parse(timeline())
         const blits = tt[0].blit[0];
-        canvas.width = blits[2];
-        canvas.height = blits[3];
-        animate(im, tt, canvas);
+        if (canvas) {
+          canvas.width = blits[2];
+          canvas.height = blits[3];
+          animate(im, tt, canvas);
+        }
       } catch {
         console.error('Error parsing timeline')
       }
@@ -218,7 +262,7 @@ const App = () => {
       });
       toggleTransition(false);
       setTimeout(() => {
-        gallery.focus();
+        gallery?.focus();
       }, 10);
     } else if (e.shiftKey && e.key === 'Delete') {
       toggleTransition(false);
@@ -234,7 +278,7 @@ const App = () => {
         return t_; 
       });
       setTimeout(() => {
-        gallery.focus();
+        gallery?.focus();
         if (currentImage() === lastIndex) {
           prevImage();
         }
@@ -296,17 +340,20 @@ const App = () => {
               <div class="relative flex items-center pt-3">
                 <input disabled={generating()} class="peer absolute z-10 h-12 w-full cursor-pointer select-none text-transparent outline-none" type="file" accept=".zip" ref={fileInput} onChange={async (event) => {
                   const zipFileInput = event.target;
-                  if (zipFileInput.files.length > 0) {
+                  if (zipFileInput.files && zipFileInput.files.length > 0) {
                     const selectedZipFile = zipFileInput.files[0];
-                    setFileName(selectedZipFile.name.split('.zip')[0]);
+                    if (selectedZipFile && selectedZipFile.name) {
+                      const name = selectedZipFile.name.split('.zip')[0];
+                      name && setFileName(name);
+                    }
                     //@ts-expect-error jszip is included globally as script tag 
                     const zip = new JSZip();
                     const zipData = await zip.loadAsync(selectedZipFile);
                     const fileNames = Object.keys(zipData.files);
 
                     fileNames.sort((a, b) => {
-                      const aNum = parseInt(a.split(".")[0]);
-                      const bNum = parseInt(b.split(".")[0]);
+                      const aNum = parseInt(a?.split(".")[0] || "0");
+                      const bNum = parseInt(b?.split(".")[0] || "0");
                       return aNum - bNum;
                     });
 
@@ -322,12 +369,12 @@ const App = () => {
                     }
 
                     setTimeout(() => {
-                      gallery.focus();
+                      gallery?.focus();
                     }, 10);
                   }
                 }}/>
-                <button disabled={generating()} class="border-outset my-[10px] flex items-center border-2 border-[#0f328f] bg-[#0349ff] px-3 py-[10px] text-sm font-medium text-white peer-hover:bg-[#0944dd]" onClick={() => {
-                  fileInput.click();
+                <button disabled={generating()} class="my-[10px] flex items-center border-2 border-[#0f328f] bg-[#0349ff] px-3 py-[10px] text-sm font-medium text-white border-outset peer-hover:bg-[#0944dd]" onClick={() => {
+                  fileInput?.click();
                 }}>
                   <span class="relative top-[-1px] pr-2"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="yellow" stroke="currentColor" stroke-width="0" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" /></svg></span>
                   <span>Select zip</span>
@@ -337,7 +384,7 @@ const App = () => {
                 </div>
               </div>
               <div class="absolute right-[20px] top-[-10px] cursor-pointer text-sm underline hover:opacity-70" onClick={() => {
-                aboutDialog.showModal();
+                aboutDialog?.showModal();
               }}>About</div>
 
             </div>
@@ -396,10 +443,10 @@ const App = () => {
                 </div>
               </div>
             </details>
-            <button style={{cursor: generating()? 'default': 'pointer'}} disabled={!ss()?.length} class="border-outset hover:not-disabled:bg-[#fb3a00] relative my-[10px] h-10 w-40 border-2 border-[#ef5527] bg-[#f46236] px-2 py-[10px] text-sm font-medium text-white disabled:cursor-default disabled:opacity-70" onClick={generateAnimation}>
+            <button style={{cursor: generating()? 'default': 'pointer'}} disabled={!ss()?.length} class="hover:not-disabled:bg-[#fb3a00] relative my-[10px] h-10 w-40 border-2 border-[#ef5527] bg-[#f46236] px-2 py-[10px] text-sm font-medium text-white border-outset disabled:cursor-default disabled:opacity-70" onClick={generateAnimation}>
               <div class="absolute left-4 top-2 z-20">Generate animation</div>
               {generating() ? 
-                <div class="ease animate-progress bg-progress-pattern absolute left-0 top-0 z-10 h-full w-full transition-all duration-300" />: null}
+                <div class="ease absolute left-0 top-0 z-10 h-full w-full animate-progress bg-progress-pattern transition-all duration-300" />: null}
             </button>
             {generating() ? <div>
               <a class="cursor-pointer text-[blue] underline hover:opacity-75" onClick={() => {
@@ -410,9 +457,10 @@ const App = () => {
             </div>: null}
           </div>
           {generating() || messages().length ? <ul ref={logScroller} class="basis-[400px] overflow-auto bg-[#ddd] px-5 py-3">
-            <For each={messages()}>{(m, i) =>
-              <li classList={{'text-red-600': err() && i() >= err().line, 'text-sm': true, 'leading-6': true}}> {'>'} {m()}</li>
-            }</For>
+            <For each={messages()}>{(m, i) => {
+              const _err = err();
+              return <li classList={{'text-red-600': Boolean(typeof _err === 'object' && 'line' in _err && i() >= _err.line), 'text-sm': true, 'leading-6': true}}> {'>'} {m}</li>
+            }}</For>
             {packedImage() && !generating() ? <li class="text-sm leading-6">
               {" > "}
               <a class="cursor-pointer text-[blue] outline-none hover:underline" onClick={() => {
@@ -447,16 +495,19 @@ const App = () => {
                   <div class="h-full overflow-auto pb-12 text-center">
                     <p class="p-3 pb-5 text-left text-sm">Below are the generated files, you can download them individually or as zip below:</p>
                     <ul class="relative flex flex-col items-center">
-                      <li>
-                        <img src={URL.createObjectURL(packedImage())} class="h-24 w-24 cursor-pointer border border-transparent object-cover hover:border-[crimson]" onClick={() => {
+                      <Show when={packedImage()} fallback={<li>Failed to load image</li>}><li>{/* eslint-disable-next-line @typescript-eslint/no-non-null-assertion */}
+                        <img src={URL.createObjectURL(packedImage()!)} class="h-24 w-24 cursor-pointer border border-transparent object-cover hover:border-[crimson]" onClick={() => {
                           window.parent.postMessage({name: 'downloadFile', extension: format(), blob: packedImage(), file: fileName()}, '*');
                         }}/>
-                      </li>
+                      </li></Show>
                       <li class="my-5">
                         <div class="flex items-center">
                           <input type="text" class="rounded-sm border-[#777] border-[1] bg-[#eee] p-1 text-sm" ref={timelineInput} value={timeline()}/>
                           <button class="scale-100 pl-1 active:scale-90" onClick={async () => {
                             try {
+                              if (!timelineInput) {
+                                return;
+                              }
                               copyToClipboard(timelineInput.value);
                               toggleClipboardMsg(true);
                               setTimeout(() => {
@@ -475,7 +526,7 @@ const App = () => {
                       </li>
                       {showClipboardMsg() ? <li class="absolute bottom-0 right-3 text-[11px]">Copied to Clipboard!</li>: null}
                     </ul>
-                    <button class="border-outset mr-4 border-2 border-[#fd6900] bg-[#fb6800] px-5 py-[10px] text-sm font-medium text-white hover:bg-[#fb3a00] disabled:cursor-default disabled:opacity-70" onClick={downloadZip}>
+                    <button class="mr-4 border-2 border-[#fd6900] bg-[#fb6800] px-5 py-[10px] text-sm font-medium text-white border-outset hover:bg-[#fb3a00] disabled:cursor-default disabled:opacity-70" onClick={downloadZip}>
                       <span>Download as zip</span>
                     </button>
                     <div class="py-3 text-xs">Found it useful? consider <a target="_blank" class="cursor-pointer font-medium text-[#f76600] underline" onClick={() => {
@@ -526,7 +577,7 @@ const App = () => {
         <p class="pt-2 text-xs"><a class="text-[blue] hover:underline" href="https://github.com/vegetableman/betamax" target="_blank">https://github.com/vegetableman/betamax</a></p>
       </div>
       <button class="float-right mt-2 border border-black p-1 hover:underline" onClick={() => {
-        aboutDialog.close();
+        aboutDialog?.close();
       }}>close</button>
     </dialog>
   </div>
