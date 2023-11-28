@@ -29,7 +29,7 @@ interface IPayload {
   displaySurface: string
 }
 
-type Direction = 'sw' | 'nw' | 'se' | 'ne' | 'e';
+export type Direction = 'sw' | 'nw' | 'se' | 'ne' | 'e' | 'w' | 's' | 'n';
 
 let __BTM_COLOR_VALUE: string;
 let __BTM_DIMENSION_OBJ: IDimension;
@@ -592,7 +592,7 @@ customElement("btm-frame", {}, () => {
         <div class="btm_mirror" data-disabled={isRecording()}>
           <Resizer disabled={isRecording()} frameRef={frame} onResize={
             // eslint-disable-next-line solid/reactivity
-            (dir: Direction, width: number, deltaX: number, deltaY: number, startLeft: number) => {
+            (dir: Direction, width: number, deltaX: number, deltaY: number, startLeft = 0) => {
               setIsResizing(true);
               if (dir === 'e') {
                 const w = width + deltaX;

@@ -44,7 +44,7 @@ Other settings:
 
 `Bitrate`:&nbsp; Used in conjuction with the option  `MediaRecoder` to set bitrate of the video being recorded.
 
-`Add offset to adjust the captured result`: Ideally, this setting should not be used. For some reason, you end up seeing the borders of the capture window in your images, you could offset it. 
+`Add offset to adjust the captured result`: Ideally, this setting should not be used. If for some reason, you end up seeing the borders of the capture window in your images (while zooming the page), you could offset it. 
 
 
 ## Generation

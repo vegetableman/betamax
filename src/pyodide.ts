@@ -1,17 +1,24 @@
+import { IPayload, IResult } from "./frame-manager";
+
+type Event = {
+  msg: string;
+  payload: unknown;
+}
+
 class Pyodide {
 
-  worker: Worker;
-  _status: Record<string, [string] | [string, MessageEvent | ErrorEvent]>;
-  loaded: boolean;
+  worker: Worker | undefined;
+  _status: Record<string, [string] | [string, MessageEvent | ErrorEvent]> = {};
+  loaded: boolean | undefined;
   /**
    * We will use this method privately to communicate with the worker and
    * return a promise with the result of the event. This way we can call
    * the worker asynchronously.
    */
-  _dispatch(event) {
+  _dispatch(event: Event) {
     const { msg } = event
     this._status[msg] = ['loading']
-    this.worker.postMessage(event)
+    this.worker?.postMessage(event)
     return new Promise((res, rej) => {
       const interval = setInterval(() => {
         const status = this._status[msg]
@@ -72,17 +79,19 @@ class Pyodide {
     })
   }
 
-  processImages(payload, cb) {
-    this.worker.onmessage = function(event) {
-      const {done, payload} = event.data;
-      cb(done, payload);
+  processImages(payload: IPayload, cb: (done: boolean, payload: IResult) => void) {
+    if (this.worker) {
+      this.worker.onmessage = function(event) {
+        const {done, payload} = event.data;
+        cb(done, payload);
+      }
     }
     return this._dispatch({ msg: 'processImages', payload });
   }
 
   terminate() {
     this.loaded = false;
-    this.worker.terminate();
+    this.worker?.terminate();
   }
 }
 
