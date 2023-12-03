@@ -7,7 +7,9 @@
 
 Related blog post: https://vigneshanand.com/recording-and-generating-animated-screencasts-within-the-browser/
 
-This tool is in **Beta** (the chrome extension is in review) and will remain so until notable performance issues are solved. If this tool is used for production or any critical use case, please do so at your own risk.
+Link to chrome extension on the [web store](https://chromewebstore.google.com/detail/betamax-beta/bilkjgflfmchnijnkfnimmcolnkgbaol?hl=en&pli=1).
+
+This tool is in **Beta** and will remain so until notable issues are solved. If this tool is used for production or any critical use case, please do so at your own risk.
 
 This project is a fork of [solid-chrome-extension-template](https://github.com/fuyutarow/solid-chrome-extension-template)
 
